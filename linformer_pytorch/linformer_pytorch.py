@@ -11,10 +11,10 @@ class FeedForward(nn.Module):
     """
     Standard Feed Forward Layer
     """
-    def __init__(self, dim, dropout=0.0, mult=4, activation="gelu"):
+    def __init__(self, channels, ff_dim, dropout=0.0, activation="gelu"):
         super(FeedForward, self).__init__()
-        self.w_1 = nn.Linear(dim, dim*mult)
-        self.w_2 = nn.Linear(dim*mult, dim)
+        self.w_1 = nn.Linear(channels, ff_dim)
+        self.w_2 = nn.Linear(ff_dim, channels)
         self.activation = get_act(activation)
         self.dropout = nn.Dropout(dropout)
 
@@ -42,14 +42,14 @@ class LinearAttentionHead(nn.Module):
         KW = self.w_k(K)
         KW = torch.einsum("nk,bnc->bkc", E, KW)
         QW = self.w_q(Q)
-        QW = torch.einsum("bnc,bkc->bnkc", QW, KW)
+        QW = torch.einsum("bnc,bkc->bnk", QW, KW)
         P_bar = QW/torch.sqrt(torch.tensor(self.dim, dtype=torch.float32))
         P_bar = P_bar.softmax(dim=-1)
         P_bar = self.dropout(P_bar)
 
         VW = self.w_v(V)
         VW = torch.einsum("nk,bnc->bkc", F, VW)
-        out_tensor = torch.einsum("bnkc,bkc->bnc", P_bar, VW)
+        out_tensor = torch.einsum("bnk,bkc->bnc", P_bar, VW)
 
         return out_tensor
 
@@ -93,7 +93,7 @@ class Linformer(nn.Module):
     My attempt at reproducing the Linformer Paper
     https://arxiv.org/pdf/2006.04768.pdf
     """
-    def __init__(self, input_size=8192, channels=128, dim_k=128, dim_ff=128, dropout_ff=0.15, nhead=8, depth=2, dropout=0.1, activation="gelu"):
+    def __init__(self, input_size=8192, channels=128, dim_k=64, dim_ff=256, dropout_ff=0.15, nhead=4, depth=1, dropout=0.1, activation="gelu"):
         super(Linformer, self).__init__()
 
         self.layers = nn.ModuleList()
@@ -101,9 +101,9 @@ class Linformer(nn.Module):
         dim_d = input_size // nhead
 
         get_attn = lambda: MHAttention(input_size, dim_d, channels, dim_k, dim_ff, nhead, dropout, activation)
-        get_ff = lambda: FeedForward(dim_ff, dropout_ff)
-        norm_attn = lambda: nn.LayerNorm(dim_d)
-        norm_ff = lambda: nn.LayerNorm(dim_ff)
+        get_ff = lambda: FeedForward(channels, dim_ff, dropout_ff)
+        norm_attn = lambda: nn.LayerNorm(channels)
+        norm_ff = lambda: nn.LayerNorm(channels)
 
         for index in range(depth):
             self.layers.append(nn.ModuleList([get_attn(),
