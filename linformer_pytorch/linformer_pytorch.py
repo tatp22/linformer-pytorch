@@ -11,7 +11,7 @@ class FeedForward(nn.Module):
     """
     Standard Feed Forward Layer
     """
-    def __init__(self, dim, mult=4, activation="gelu", dropout=0.0):
+    def __init__(self, dim, dropout=0.0, mult=4, activation="gelu"):
         super(FeedForward, self).__init__()
         self.w_1 = nn.Linear(dim, dim*mult)
         self.w_2 = nn.Linear(dim*mult, dim)
@@ -24,32 +24,31 @@ class FeedForward(nn.Module):
             tensor = self.activation(tensor)
         tensor = self.dropout(tensor)
         tensor = self.w_2(tensor)
+        return tensor
 
 class LinearAttentionHead(nn.Module):
     """
     Linear attention, as proposed by the linformer paper
     """
-    def __init__(self, dim, dropout, E, F):
+    def __init__(self, dim, dropout):
         super(LinearAttentionHead, self).__init__()
         self.w_k = nn.Linear(dim, dim)
         self.w_q = nn.Linear(dim, dim)
         self.w_v = nn.Linear(dim, dim)
         self.dim = dim
-        self.E = E
-        self.F = F
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, Q, K, V):
+    def forward(self, Q, K, V, E, F):
         KW = self.w_k(K)
-        KW = torch.einsum("nk,bnc->bkc", self.E, KW)
+        KW = torch.einsum("nk,bnc->bkc", E, KW)
         QW = self.w_q(Q)
         QW = torch.einsum("bnc,bkc->bnkc", QW, KW)
-        P_bar = QW/torch.sqrt(self.dim)
+        P_bar = QW/torch.sqrt(torch.tensor(self.dim, dtype=torch.float32))
         P_bar = P_bar.softmax(dim=-1)
         P_bar = self.dropout(P_bar)
 
         VW = self.w_v(V)
-        VW = torch.einsum("nk,bnc->bkc", self.F, VW)
+        VW = torch.einsum("nk,bnc->bkc", F, VW)
         out_tensor = torch.einsum("bnkc,bkc->bnc", P_bar, VW)
 
         return out_tensor
@@ -59,28 +58,32 @@ class MHAttention(nn.Module):
     Multihead attention, with each head being a Linformer Head
     This feeds directly into a feed forward head
     """
-    def __init__(self, input_size, dim, channels, dim_k, nhead, dropout, activation):
+    def __init__(self, input_size, dim, channels, dim_k, dim_ff, nhead, dropout, activation):
         super(MHAttention, self).__init__()
         self.heads = nn.ModuleList()
-
-        # For now, let's use the same projection matrix for all of them, as mentioned in the "Additional Efficiency Techniques" section
-        self.EF = torch.eye(input_size, dim_k)
+        self.input_size = input_size
+        self.dim_k = dim_k
 
         for head in range(nhead):
-            attn = LinearAttentionHead(dim, dropout, activation, self.EF, self.EF)
+            attn = LinearAttentionHead(dim, dropout)
             self.heads.append(attn)
-        self.w_o = nn.Linear(dim*nhead, dim_ff)
+        self.w_o = nn.Linear(dim*nhead, channels)
         self.to_q = nn.Linear(channels, dim, bias=False)
         self.to_k = nn.Linear(channels, dim, bias=False)
         self.to_v = nn.Linear(channels, dim, bias=False)
 
     def forward(self, tensor):
+        tensor_device = tensor.device
+
+        # For now, let's use the same projection matrix for all of them, as mentioned in the "Additional Efficiency Techniques" section
+        EF = torch.eye(self.input_size, self.dim_k, device=tensor_device)
+
         head_outputs = []
         for head in self.heads:
             Q = self.to_q(tensor)
             K = self.to_k(tensor)
             V = self.to_v(tensor)
-            head_outputs.append(head(Q,K,V))
+            head_outputs.append(head(Q,K,V,EF,EF))
         out = torch.cat(head_outputs, dim=2)
         out = self.w_o(out)
         return out
@@ -90,7 +93,7 @@ class Linformer(nn.Module):
     My attempt at reproducing the Linformer Paper
     https://arxiv.org/pdf/2006.04768.pdf
     """
-    def __init__(self, input_size=8192, channels=128, dim_k=256, dim_ff=2048, dropout_ff=0.15, nhead=8, depth=6, dropout=0.1, activation="gelu"):
+    def __init__(self, input_size=8192, channels=128, dim_k=128, dim_ff=128, dropout_ff=0.15, nhead=8, depth=2, dropout=0.1, activation="gelu"):
         super(Linformer, self).__init__()
 
         self.layers = nn.ModuleList()
@@ -103,10 +106,10 @@ class Linformer(nn.Module):
         norm_ff = lambda: nn.LayerNorm(dim_ff)
 
         for index in range(depth):
-            self.layers.append([get_attn(),
+            self.layers.append(nn.ModuleList([get_attn(),
                                 norm_attn(),
                                 get_ff(),
-                                norm_ff()])
+                                norm_ff()]))
 
     def forward(self, tensor):
         """
@@ -124,7 +127,7 @@ class Linformer(nn.Module):
             tensor += before_attn_tensor
             tensor = attn_norm(tensor)
 
-             # Run ff
+            # Run ff
             before_ff_tensor = tensor.clone().detach()
             tensor = ff(tensor)
             tensor += before_ff_tensor
