@@ -51,6 +51,7 @@ print(y)
 * Add option to change the `E` and `F` downsampling matrices
 * Run some benchmark tests to see what the performace is
 * Instead of matrix multiplication to bring the dimensions down to k (With EKW and FVW), try to do convolution, as mentioned in the paper, with a stride length and kernel size of n/k.
+* In the paper, emperical studies showed that one can reduce the value of k when increasing depth. Add some option to decrease k more per layers, saving even more memory.
 
 ## Disclaimer
 This is the first time that I am reproducing a result from a paper, so some things may be wrong. If you see a problem, please open up an issue, and I will attempt to work on it.
