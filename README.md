@@ -2,6 +2,8 @@
 
 A practical implementation of the [Linformer paper](https://arxiv.org/pdf/2006.04768.pdf).
 
+I am not the author of the paper.
+
 ## How to use
 Simply pull the repo and install the necessary dependencies.
 
