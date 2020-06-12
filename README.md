@@ -8,7 +8,7 @@ Assuming you have `torch` installed from `pip`, and a GPU with enough memory:
 
 ```
 git clone git@github.com:tatp22/linformer-pytorch.git
-cd reformer-pytorch
+cd linformer-pytorch
 python example.py
 ```
 
@@ -54,6 +54,9 @@ print(y)
 
 ## Disclaimer
 This is the first time that I am reproducing a result from a paper, so some things may be wrong. If you see a problem, please open up an issue, and I will attempt to work on it.
+
+## Thanks
+Thank you to [lucidrains](https://github.com/lucidrains), whose other sparse attention repositories helped me in designing this Linformer Repo.
 
 ## Citations
 
