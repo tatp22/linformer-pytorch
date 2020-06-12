@@ -38,11 +38,19 @@ y = model(x)
 print(y)
 ```
 
-## Things left to do
+## Practical Tips
+* Note that the Linformer has O(nk) time and space complexity. So, while it may be linear in n, make sure that your k is not too large as well. These are editable with `input_size` and `dim_k`, respectively.
+* Speaking about k, the authors found that emperical evidence supports the fact that "the performance of Linformer model is mainly determined bt the projected dimension k instead of the ratio n/k". Therefore, even when increasing sequence lengths, it may be fine to keep a relatively low, constant k (the authors showed with k=256, that it still performed almost as good as a vanilla transformer).
+* One more tip for k: The authors recommend that k = O(d/eps^2), if self attention wants to be approximated by full attention, with eps error.
+* This code, so far, is pretty much only linear layers as well as matrix multiplications. So, libraries like `apex` should work with this, however, in practice, it has not been tested.
+* In practice, I found that the memory and time requirements are more on the order of O(nkd), with n=`input_size`, k=`dim_k`, and d=`dim_d`.
+
+## Future workj
 * ~~Change the `einsum`s to `matmul` for faster multiplication~~
 * ~~Fix a bug where the model is using too much memory. Probably has to do with the inner dimension.~~
 * Add option to change the `E` and `F` downsampling matrices
 * Run some benchmark tests to see what the performace is
+* Instead of matrix multiplication to bring the dimensions down to k (With EKW and FVW), try to do convolution, as mentioned in the paper, with a stride length and kernel size of n/k.
 
 ## Disclaimer
 This is the first time that I am reproducing a result from a paper, so some things may be wrong. If you see a problem, please open up an issue, and I will attempt to work on it.
@@ -59,3 +67,4 @@ This is the first time that I am reproducing a result from a paper, so some thin
     primaryClass={cs.LG}
 }
 ```
+["Listen with attention..."](https://www.youtube.com/watch?v=ZKirRqHtuBU)
