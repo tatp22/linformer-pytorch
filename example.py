@@ -3,12 +3,13 @@ import torch
 
 device = torch.device("cuda")
 model = Linformer(
-        input_size=16384,
-        channels=128,
-        dim_k=128,
+        input_size=262144,
+        channels=64,
+        dim_d=256,
+        dim_k=64,
         dim_ff=128,
         ).cuda()
-x = torch.randn(1, 16384, 128).cuda()
+x = torch.randn(1, 262144, 64).cuda()
 y = model(x)
 print(y)
 

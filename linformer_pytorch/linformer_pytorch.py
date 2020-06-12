@@ -96,12 +96,11 @@ class Linformer(nn.Module):
     My attempt at reproducing the Linformer Paper
     https://arxiv.org/pdf/2006.04768.pdf
     """
-    def __init__(self, input_size=8192, channels=128, dim_k=64, dim_ff=256, dropout_ff=0.15, nhead=4, depth=1, dropout=0.1, activation="gelu"):
+    def __init__(self, input_size=8192, channels=128, dim_k=64, dim_ff=256, dim_d=512, dropout_ff=0.15, nhead=4, depth=1, dropout=0.1, activation="gelu"):
         super(Linformer, self).__init__()
 
         self.layers = nn.ModuleList()
         self.input_size = input_size
-        dim_d = input_size // nhead
 
         get_attn = lambda: MHAttention(input_size, dim_d, channels, dim_k, dim_ff, nhead, dropout, activation)
         get_ff = lambda: FeedForward(channels, dim_ff, dropout_ff)

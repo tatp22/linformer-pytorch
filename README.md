@@ -22,8 +22,9 @@ import torch
 
 device = torch.device("cuda")
 model = Linformer(
-        input_size=16384, # Dimension 1 of the input
-        channels=128, # Dimension 2 of the input
+        input_size=262144, # Dimension 1 of the input
+        channels=64, # Dimension 2 of the input
+        dim_d=256, # The inner dimension of the attention heads
         dim_k=128, # The second dimension of the P_bar matrix from the paper
         dim_ff=128, # Dimension in the feed forward network
         dropout_ff=0.15, # Dropout for feed forward network
@@ -32,14 +33,14 @@ model = Linformer(
         dropout=0.1, # How much dropout to apply to P_bar after softmax
         activation="gelu", # What activation to use. Currently, only gelu and relu supported, and only on ff network.
         ).cuda()
-x = torch.randn(1, 16384, 128).cuda()
+x = torch.randn(1, 262144, 64).cuda()
 y = model(x)
 print(y)
 ```
 
 ## Things left to do
 * ~~Change the `einsum`s to `matmul` for faster multiplication~~
-* Fix a bug where the model is using too much memory. Probably has to do with the inner dimension.
+* ~~Fix a bug where the model is using too much memory. Probably has to do with the inner dimension.~~
 * Add option to change the `E` and `F` downsampling matrices
 * Run some benchmark tests to see what the performace is
 
