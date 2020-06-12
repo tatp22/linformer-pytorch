@@ -60,7 +60,7 @@ Thank you to [lucidrains](https://github.com/lucidrains), whose other sparse att
 
 ## Citations
 
-```
+```bibtex
 @misc{wang2020linformer,
     title={Linformer: Self-Attention with Linear Complexity},
     author={Sinong Wang and Belinda Z. Li and Madian Khabsa and Han Fang and Hao Ma},
