@@ -45,7 +45,7 @@ print(y)
 * This code, so far, is pretty much only linear layers as well as matrix multiplications. So, libraries like `apex` should work with this, however, in practice, it has not been tested.
 * In practice, I found that the memory and time requirements are more on the order of O(nkd), with n=`input_size`, k=`dim_k`, and d=`dim_d`.
 
-## Future workj
+## Future work
 * ~~Change the `einsum`s to `matmul` for faster multiplication~~
 * ~~Fix a bug where the model is using too much memory. Probably has to do with the inner dimension.~~
 * Add option to change the `E` and `F` downsampling matrices
