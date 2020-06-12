@@ -1,6 +1,6 @@
 # Linformer Pytorch Implementation
-A practical implementation of the [Linformer paper](https://arxiv.org/pdf/2006.04768.pdf). Still a work in progress.
-
+A practical implementation of the [Linformer paper](https://arxiv.org/pdf/2006.04768.pdf).
+Has not been emperically tested (i.e. if it performs well on any datasets), but the self attention mechanism works.
 I am not the author of the paper.
 
 ## How to use
