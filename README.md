@@ -38,7 +38,8 @@ print(y)
 ```
 
 ## Things left to do
-* Change the `einsum`s to `matmul` for faster multiplication
+* ~~Change the `einsum`s to `matmul` for faster multiplication~~
+* Fix a bug where the model is using too much memory. Probably has to do with the inner dimension.
 * Add option to change the `E` and `F` downsampling matrices
 * Run some benchmark tests to see what the performace is
 

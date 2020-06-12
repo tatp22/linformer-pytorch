@@ -40,16 +40,19 @@ class LinearAttentionHead(nn.Module):
 
     def forward(self, Q, K, V, E, F):
         KW = self.w_k(K)
-        KW = torch.einsum("nk,bnc->bkc", E, KW)
+        KW = torch.matmul(E, KW)
+        KW = torch.transpose(KW, 1, 2)
         QW = self.w_q(Q)
-        QW = torch.einsum("bnc,bkc->bnk", QW, KW)
+        QW = torch.matmul(QW, KW)
+
+        # TODO: Possibly change the dtype?
         P_bar = QW/torch.sqrt(torch.tensor(self.dim, dtype=torch.float32))
         P_bar = P_bar.softmax(dim=-1)
         P_bar = self.dropout(P_bar)
 
         VW = self.w_v(V)
-        VW = torch.einsum("nk,bnc->bkc", F, VW)
-        out_tensor = torch.einsum("bnk,bkc->bnc", P_bar, VW)
+        VW = torch.matmul(F, VW)
+        out_tensor = torch.matmul(P_bar, VW)
 
         return out_tensor
 
@@ -76,7 +79,7 @@ class MHAttention(nn.Module):
         tensor_device = tensor.device
 
         # For now, let's use the same projection matrix for all of them, as mentioned in the "Additional Efficiency Techniques" section
-        EF = torch.eye(self.input_size, self.dim_k, device=tensor_device)
+        EF = torch.eye(self.dim_k, self.input_size, device=tensor_device)
 
         head_outputs = []
         for head in self.heads:
