@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from torch.utils.checkpoint import checkpoint
+
 def get_act(activation):
     if activation == "gelu":
         return F.gelu
@@ -61,11 +63,12 @@ class MHAttention(nn.Module):
     Multihead attention, with each head being a Linformer Head
     This feeds directly into a feed forward head
     """
-    def __init__(self, input_size, dim, channels, dim_k, dim_ff, nhead, dropout, activation):
+    def __init__(self, input_size, dim, channels, dim_k, dim_ff, nhead, dropout, activation, checkpoint_level):
         super(MHAttention, self).__init__()
         self.heads = nn.ModuleList()
         self.input_size = input_size
         self.dim_k = dim_k
+        self.checkpoint_level = checkpoint_level
 
         for head in range(nhead):
             attn = LinearAttentionHead(dim, dropout)
@@ -86,7 +89,10 @@ class MHAttention(nn.Module):
             Q = self.to_q(tensor)
             K = self.to_k(tensor)
             V = self.to_v(tensor)
-            head_outputs.append(head(Q,K,V,EF,EF))
+            if self.checkpoint_level == "C2":
+                head_outputs.append(checkpoint(head,Q,K,V,EF,EF))
+            else:
+                head_outputs.append(head(Q,K,V,EF,EF))
         out = torch.cat(head_outputs, dim=2)
         out = self.w_o(out)
         return out
@@ -96,14 +102,17 @@ class Linformer(nn.Module):
     My attempt at reproducing the Linformer Paper
     https://arxiv.org/pdf/2006.04768.pdf
     """
-    def __init__(self, input_size=8192, channels=128, dim_k=64, dim_ff=256, dim_d=512, dropout_ff=0.15, nhead=4, depth=1, dropout=0.1, activation="gelu"):
+    def __init__(self, input_size=8192, channels=128, dim_k=64, dim_ff=256, dim_d=512, dropout_ff=0.15, nhead=4, depth=1, dropout=0.1, activation="gelu", checkpoint_level="C0"):
         super(Linformer, self).__init__()
         assert activation == "gelu" or activation == "relu", "Only gelu and relu activations supported for now"
+        assert checkpoint_level == "C0" or checkpoint_level == "C1" or checkpoint_level == "C2", "Checkpoint level has to be either C0, C1, or C2"
 
         self.layers = nn.ModuleList()
         self.input_size = input_size
+        self.channels = channels
+        self.checkpoint_level = checkpoint_level
 
-        get_attn = lambda: MHAttention(input_size, dim_d, channels, dim_k, dim_ff, nhead, dropout, activation)
+        get_attn = lambda: MHAttention(input_size, dim_d, channels, dim_k, dim_ff, nhead, dropout, activation, checkpoint_level)
         get_ff = lambda: FeedForward(channels, dim_ff, dropout_ff)
         norm_attn = lambda: nn.LayerNorm(channels)
         norm_ff = lambda: nn.LayerNorm(channels)
@@ -118,6 +127,10 @@ class Linformer(nn.Module):
         """
         Input is (batch_size, seq_len, channels)
         """
+        bt, n, c = tensor.shape
+        assert n == self.input_size, "This tensor is of the wrong size. Dimension 1 has to match the `input_size` flag"
+        assert c == self.channels, "This tensor is of the wrong size. Dimension 2 has to match the `channels` flag"
+
         for layer in self.layers:
             attn = layer[0]
             attn_norm = layer[1]
@@ -126,13 +139,19 @@ class Linformer(nn.Module):
 
             # Run attention
             before_attn_tensor = tensor.clone().detach()
-            tensor = attn(tensor)
+            if self.checkpoint_level == "C1" or self.checkpoint_level == "C2":
+                tensor = checkpoint(attn, tensor)
+            else:
+                tensor = attn(tensor)
             tensor += before_attn_tensor
             tensor = attn_norm(tensor)
 
             # Run ff
             before_ff_tensor = tensor.clone().detach()
-            tensor = ff(tensor)
+            if self.checkpoint_level == "C1" or self.checkpoint_level == "C2":
+                tensor = checkpoint(ff, tensor)
+            else:
+                tensor = ff(tensor)
             tensor += before_ff_tensor
             tensor = ff_norm(tensor)
 
