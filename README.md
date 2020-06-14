@@ -5,11 +5,13 @@ Has not been empirically tested (i.e. if it performs well on any datasets), but 
 
 I am not the author of the paper.
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1zHenqau3rMo3oS_7EisfGsahSs-1_sok?usp=sharing) 1.23m tokens
+
 ## How to use
 Assuming you have `torch` installed from `pip`, and a GPU with enough memory:
 
 ```
-git clone git@github.com:tatp22/linformer-pytorch.git
+git clone https://github.com/tatp22/linformer-pytorch.git
 cd linformer-pytorch
 python example.py
 ```
@@ -86,4 +88,4 @@ Thank you to [lucidrains](https://github.com/lucidrains), whose other sparse att
     primaryClass={cs.LG}
 }
 ```
-["Listen with attention..."](https://www.youtube.com/watch?v=ZKirRqHtuBU)
+["Listen with attention..."](https://youtu.be/dRSOB-E0gPA?t=54)

@@ -9,6 +9,12 @@ def get_act(activation):
         return F.gelu
     return F.relu
 
+def get_pos_encoding(seq_len, channels):
+    """
+    Returns the positional encoding that can be used to augment the input sequence.
+    """
+    pass
+
 class FeedForward(nn.Module):
     """
     Standard Feed Forward Layer
