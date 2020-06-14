@@ -1,4 +1,6 @@
 # Linformer Pytorch Implementation
+[![PyPI version](https://badge.fury.io/py/linformer-pytorch.svg)](https://badge.fury.io/py/linformer-pytorch)
+
 A practical implementation of the [Linformer paper](https://arxiv.org/pdf/2006.04768.pdf).
 
 Has not been empirically tested (i.e. if it performs well on any datasets), but the self attention mechanism works.
@@ -7,18 +9,19 @@ I am not the author of the paper.
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1zHenqau3rMo3oS_7EisfGsahSs-1_sok?usp=sharing) 1.23m tokens
 
-## How to use
-Assuming you have `torch` installed from `pip`, and a GPU with enough memory:
+## Install
+```
+pip install linformer-pytorch
+```
+
+Alternatively,
 
 ```
 git clone https://github.com/tatp22/linformer-pytorch.git
 cd linformer-pytorch
-python example.py
 ```
 
-Copy the files into your project if need be. Will look into making this easily installable via `pip`.
-
-Code Example:
+## Code example
 
 ```python
 from linformer_pytorch import Linformer
