@@ -50,7 +50,7 @@ print(y)
 As an attempt to further introduce memory savings, the concept of checkpoint levels have been introduced. The current three checkpoint levels are `C0`, `C1`, and `C2`. When going up checkpoint levels, one sacrifices speed for memory savings. That is, checkpoint level `C0` is the fastest, but takes up the most space on the GPU, while `C2` is the slowest, but takes up the least space on the GPU. The details of each checkpoint level are as follows:
 * `C0`: No checkpointing. The models runs while keeping all of the attention heads and ff layers in the GPU memory.
 * `C1`: Checkpoint each MultiHead attention as well as each ff layer. With this, increasing `depth` should have minimal impact on the memory.
-* `C2`: Along with the optimizations at the `C1` level, checkpoint each head in each MultiHead Attention layer. With this, increasing `nhead` should have minimal impact on the memory.
+* `C2`: Along with the optimizations at the `C1` level, checkpoint each head in each MultiHead Attention layer. With this, increasing `nhead` should have less of an impact on memory. However, concating the heads together with `torch.cat` still takes up a lot of memory, and this will hopefully be optimized out in the future.
 
 Performance details are still unknown, but the option exists for users that want to try.
 

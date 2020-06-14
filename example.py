@@ -11,7 +11,7 @@ model = Linformer(
         ).cuda()
 x = torch.randn(1, 262144, 64).cuda()
 y = model(x)
-print(y)
+print(y) # (1, 262144, 64)
 
 # To see memory usage, uncomment the line below.
 #print('Allocated Memory:', round(torch.cuda.memory_allocated(0)/1024**3,1), 'GB')

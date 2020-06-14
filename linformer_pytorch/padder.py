@@ -15,7 +15,7 @@ class Padder(nn.Module):
     def forward(self, tensor):
         batch_size, seq_len, ch = tensor.shape
         padding_amount = self.net.input_size - seq_len
-        net_tensor = torch.zeros((batch_size, seq_len+padding_amount, ch)).cuda()
+        net_tensor = torch.zeros((batch_size, seq_len+padding_amount, ch), device=tensor.device)
         net_tensor[:,:seq_len,:] = tensor
         net_tensor = self.net(net_tensor)
         tensor = net_tensor[:,:seq_len,:]
