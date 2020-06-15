@@ -58,22 +58,24 @@ class LinearAttentionHead(nn.Module):
     """
     Linear attention, as proposed by the linformer paper
     """
-    def __init__(self, dim, dropout):
+    def __init__(self, dim, dropout, E, F):
         super(LinearAttentionHead, self).__init__()
         self.w_k = nn.Linear(dim, dim)
         self.w_q = nn.Linear(dim, dim)
         self.w_v = nn.Linear(dim, dim)
+        self.E = E
+        self.F = F
         self.dim = dim
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, Q, K, V, E, F):
+    def forward(self, Q, K, V):
         """
         Assume Q, K, V have same dtype
         E, F are `nn.Linear` modules
         """
         KW = self.w_k(K)
         KW = torch.transpose(KW, 1, 2)
-        KW = E(KW)
+        KW = self.E(KW)
         QW = self.w_q(Q)
         QW = torch.matmul(QW, KW)
 
@@ -83,7 +85,7 @@ class LinearAttentionHead(nn.Module):
 
         VW = self.w_v(V)
         VW = torch.transpose(VW, 1, 2)
-        VW = F(VW)
+        VW = self.F(VW)
         VW = torch.transpose(VW, 1, 2)
         out_tensor = torch.matmul(P_bar, VW)
 
@@ -103,7 +105,7 @@ class MHAttention(nn.Module):
         self.EF = get_EF(input_size, dim)
 
         for head in range(nhead):
-            attn = LinearAttentionHead(dim, dropout)
+            attn = LinearAttentionHead(dim, dropout, self.EF, self.EF)
             self.heads.append(attn)
         self.w_o = nn.Linear(dim*nhead, channels)
         self.to_q = nn.Linear(channels, dim, bias=False)
@@ -119,9 +121,9 @@ class MHAttention(nn.Module):
             K = self.to_k(tensor)
             V = self.to_v(tensor)
             if self.checkpoint_level == "C2":
-                head_outputs.append(checkpoint(head,Q,K,V,self.EF,self.EF))
+                head_outputs.append(checkpoint(head,Q,K,V))
             else:
-                head_outputs.append(head(Q,K,V,self.EF,self.EF))
+                head_outputs.append(head(Q,K,V))
         out = torch.cat(head_outputs, dim=2)
         out = self.w_o(out)
         return out

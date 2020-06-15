@@ -79,7 +79,7 @@ print(y) # (1, 500, 16)
 ```
 
 ## E and F matrices
-*Please upgrade to the latest version of `linformer-pytorch`, or a version `>=0.3.0`, if you downloaded it from `pip`!* The way I calculated the E and F matrices before was that I simply used an identity matrix to downsample. However, I contacted the authors of the paper, who told me that they are actually learned parameters, and that using a `nn.Linear` layer with Xavier initialization is the way they used to compute these matrices.
+*Please upgrade to the latest version of `linformer-pytorch`, or a version `>=0.3.1`, if you downloaded it from `pip`!* The way I calculated the E and F matrices before was that I simply used an identity matrix to downsample. However, I contacted the authors of the paper, who told me that they are actually learned parameters, and that using a `nn.Linear` layer with Xavier initialization is the way they used to compute these matrices.
 
 ## Practical Tips
 * Note that the Linformer has O(nk) time and space complexity. So, while it may be linear in n, make sure that your k is not too large as well. These are editable with `input_size` and `dim_k`, respectively.
