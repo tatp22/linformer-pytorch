@@ -9,6 +9,15 @@ def get_act(activation):
         return F.gelu
     return F.relu
 
+def get_EF(input_size, dim):
+    """
+    Retuns the E or F matrix, initialized via xavier initialization.
+    This is the recommended way to do it according to the authors of the paper.
+    """
+    EF = nn.Linear(input_size, dim)
+    torch.nn.init.xavier_normal_(EF.weight)
+    return EF
+
 class PositionalEmbedding(nn.Module):
     """
     Standard positional embedding.
@@ -59,11 +68,12 @@ class LinearAttentionHead(nn.Module):
 
     def forward(self, Q, K, V, E, F):
         """
-        Assume Q, K, V, E, F have same dtype
+        Assume Q, K, V have same dtype
+        E, F are `nn.Linear` modules
         """
         KW = self.w_k(K)
-        KW = torch.matmul(E, KW)
         KW = torch.transpose(KW, 1, 2)
+        KW = E(KW)
         QW = self.w_q(Q)
         QW = torch.matmul(QW, KW)
 
@@ -72,7 +82,9 @@ class LinearAttentionHead(nn.Module):
         P_bar = self.dropout(P_bar)
 
         VW = self.w_v(V)
-        VW = torch.matmul(F, VW)
+        VW = torch.transpose(VW, 1, 2)
+        VW = F(VW)
+        VW = torch.transpose(VW, 1, 2)
         out_tensor = torch.matmul(P_bar, VW)
 
         return out_tensor
@@ -88,6 +100,7 @@ class MHAttention(nn.Module):
         self.input_size = input_size
         self.dim_k = dim_k
         self.checkpoint_level = checkpoint_level
+        self.EF = get_EF(input_size, dim)
 
         for head in range(nhead):
             attn = LinearAttentionHead(dim, dropout)
@@ -100,18 +113,15 @@ class MHAttention(nn.Module):
     def forward(self, tensor):
         tensor_device = tensor.device
 
-        # For now, let's use the same projection matrix for all of them, as mentioned in the "Additional Efficiency Techniques" section
-        EF = torch.eye(self.dim_k, self.input_size, device=tensor_device).type(tensor.type())
-
         head_outputs = []
         for head in self.heads:
             Q = self.to_q(tensor)
             K = self.to_k(tensor)
             V = self.to_v(tensor)
             if self.checkpoint_level == "C2":
-                head_outputs.append(checkpoint(head,Q,K,V,EF,EF))
+                head_outputs.append(checkpoint(head,Q,K,V,self.EF,self.EF))
             else:
-                head_outputs.append(head(Q,K,V,EF,EF))
+                head_outputs.append(head(Q,K,V,self.EF,self.EF))
         out = torch.cat(head_outputs, dim=2)
         out = self.w_o(out)
         return out
