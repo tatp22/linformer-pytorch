@@ -1,7 +1,7 @@
 # Linformer Pytorch Implementation
 [![PyPI version](https://badge.fury.io/py/linformer-pytorch.svg)](https://badge.fury.io/py/linformer-pytorch)
 
-A practical implementation of the [Linformer paper](https://arxiv.org/pdf/2006.04768.pdf). Attention with only linear complexity, allowing for very long sequence lengths (1mil+) to be attended to on modern hardware.
+A practical implementation of the [Linformer paper](https://arxiv.org/pdf/2006.04768.pdf). This is ttention with only linear complexity in n (O(n)), allowing for very long sequence lengths (1mil+) to be attended to on modern hardware.
 
 This repo has not been empirically tested (i.e. if it performs well on any datasets), but the self attention mechanism works.
 
@@ -78,6 +78,9 @@ y = model(x)
 print(y) # (1, 500, 16)
 ```
 
+## E and F matrices
+*Please upgrade to the latest version of `linformer-pytorch`, or a version `>=0.3.0`, if you downloaded it from `pip`!* The way I calculated the E and F matrices before was that I simply used an identity matrix to downsample. However, I contacted the authors of the paper, who told me that they are actually learned parameters, and that using a `nn.Linear` layer with Xavier initialization is the way they used to compute these matrices.
+
 ## Practical Tips
 * Note that the Linformer has O(nk) time and space complexity. So, while it may be linear in n, make sure that your k is not too large as well. These are editable with `input_size` and `dim_k`, respectively.
 * Speaking about k, the authors found that empirical evidence supports the fact that "the performance of Linformer model is mainly determined by the projected dimension k instead of the ratio n/k". Therefore, even when increasing sequence lengths, it may be fine to keep a relatively low, constant k (the authors showed with k=256, that it still performed almost as good as a vanilla transformer).
@@ -86,9 +89,6 @@ print(y) # (1, 500, 16)
 * In practice, I found that the memory and time requirements are more on the order of O(nkd), with n=`input_size`, k=`dim_k`, and d=`dim_d`.
 
 ## Future work
-* ~~Change the `einsum`s to `matmul` for faster multiplication~~
-* ~~Fix a bug where the model is using too much memory. Probably has to do with the inner dimension.~~
-* ~~Add positional embeddings~~
 * Add option to change the `E` and `F` downsampling matrices
 * Run some benchmark tests to see what the performance is
 * Instead of matrix multiplication to bring the dimensions down to k (With EKW and FVW), try to do convolution, as mentioned in the paper, with a stride length and kernel size of n/k.
