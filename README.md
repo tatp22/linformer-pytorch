@@ -88,7 +88,7 @@ print(y) # (1, 500, 16)
 ## Future work
 * ~~Change the `einsum`s to `matmul` for faster multiplication~~
 * ~~Fix a bug where the model is using too much memory. Probably has to do with the inner dimension.~~
-* Add positional embeddings
+* ~~Add positional embeddings~~
 * Add option to change the `E` and `F` downsampling matrices
 * Run some benchmark tests to see what the performance is
 * Instead of matrix multiplication to bring the dimensions down to k (With EKW and FVW), try to do convolution, as mentioned in the paper, with a stride length and kernel size of n/k.
