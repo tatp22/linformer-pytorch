@@ -1,9 +1,9 @@
 # Linformer Pytorch Implementation
 [![PyPI version](https://badge.fury.io/py/linformer-pytorch.svg)](https://badge.fury.io/py/linformer-pytorch)
 
-A practical implementation of the [Linformer paper](https://arxiv.org/pdf/2006.04768.pdf).
+A practical implementation of the [Linformer paper](https://arxiv.org/pdf/2006.04768.pdf). Attention with only linear complexity, allowing for very long sequence lengths (1mil+) to be attended to on modern hardware.
 
-Has not been empirically tested (i.e. if it performs well on any datasets), but the self attention mechanism works.
+This repo has not been empirically tested (i.e. if it performs well on any datasets), but the self attention mechanism works.
 
 I am not the author of the paper.
 
@@ -39,6 +39,7 @@ model = Linformer(
         depth=2, # How many times to run the model
         dropout=0.1, # How much dropout to apply to P_bar after softmax
         activation="gelu", # What activation to use. Currently, only gelu and relu supported, and only on ff network.
+        use_pos_emb=True, # Whether or not to use positional embeddings
         checkpoint_level="C0", # What checkpoint level to use. For more information, see below.
         ).cuda()
 x = torch.randn(1, 262144, 64).cuda()

@@ -9,11 +9,22 @@ def get_act(activation):
         return F.gelu
     return F.relu
 
-def get_pos_encoding(seq_len, channels):
+class PositionalEmbedding(nn.Module):
     """
-    Returns the positional encoding that can be used to augment the input sequence.
+    Standard positional embedding.
+    From the paper "Attention is all you need".
+    Changed the constant from 10k to 100k, since this may be better for longer sequence lengths.
     """
-    pass
+    def __init__(self, channels):
+        super(PositionalEmbedding, self).__init__()
+        inv_freq = 1. / (100000 ** (torch.arange(0, channels, 2).float() / channels))
+        self.register_buffer('inv_freq', inv_freq)
+
+    def forward(self, tensor):
+        pos = torch.arange(tensor.shape[1], device=tensor.device).type(self.inv_freq.type())
+        sin_inp = torch.einsum("i,j->ij", pos, self.inv_freq)
+        emb = torch.cat((sin_inp.sin(), sin_inp.cos()), dim=-1)
+        return emb[None,:,:]
 
 class FeedForward(nn.Module):
     """
@@ -47,14 +58,16 @@ class LinearAttentionHead(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, Q, K, V, E, F):
+        """
+        Assume Q, K, V, E, F have same dtype
+        """
         KW = self.w_k(K)
         KW = torch.matmul(E, KW)
         KW = torch.transpose(KW, 1, 2)
         QW = self.w_q(Q)
         QW = torch.matmul(QW, KW)
 
-        # TODO: Possibly change the dtype?
-        P_bar = QW/torch.sqrt(torch.tensor(self.dim, dtype=torch.float32))
+        P_bar = QW/torch.sqrt(torch.tensor(self.dim).type(Q.type()))
         P_bar = P_bar.softmax(dim=-1)
         P_bar = self.dropout(P_bar)
 
@@ -88,7 +101,7 @@ class MHAttention(nn.Module):
         tensor_device = tensor.device
 
         # For now, let's use the same projection matrix for all of them, as mentioned in the "Additional Efficiency Techniques" section
-        EF = torch.eye(self.dim_k, self.input_size, device=tensor_device)
+        EF = torch.eye(self.dim_k, self.input_size, device=tensor_device).type(tensor.type())
 
         head_outputs = []
         for head in self.heads:
@@ -108,7 +121,7 @@ class Linformer(nn.Module):
     My attempt at reproducing the Linformer Paper
     https://arxiv.org/pdf/2006.04768.pdf
     """
-    def __init__(self, input_size=8192, channels=128, dim_k=64, dim_ff=256, dim_d=512, dropout_ff=0.15, nhead=4, depth=1, dropout=0.1, activation="gelu", checkpoint_level="C0"):
+    def __init__(self, input_size=8192, channels=128, dim_k=64, dim_ff=256, dim_d=512, dropout_ff=0.15, nhead=4, depth=1, dropout=0.1, activation="gelu", use_pos_emb=True, checkpoint_level="C0"):
         super(Linformer, self).__init__()
         assert activation == "gelu" or activation == "relu", "Only gelu and relu activations supported for now"
         assert checkpoint_level == "C0" or checkpoint_level == "C1" or checkpoint_level == "C2", "Checkpoint level has to be either C0, C1, or C2"
@@ -117,6 +130,7 @@ class Linformer(nn.Module):
         self.input_size = input_size
         self.channels = channels
         self.checkpoint_level = checkpoint_level
+        self.pos_emb = PositionalEmbedding(channels) if use_pos_emb else None
 
         get_attn = lambda: MHAttention(input_size, dim_d, channels, dim_k, dim_ff, nhead, dropout, activation, checkpoint_level)
         get_ff = lambda: FeedForward(channels, dim_ff, dropout_ff)
@@ -136,6 +150,9 @@ class Linformer(nn.Module):
         bt, n, c = tensor.shape
         assert n == self.input_size, "This tensor is of the wrong size. Dimension 1 has to match the `input_size` flag"
         assert c == self.channels, "This tensor is of the wrong size. Dimension 2 has to match the `channels` flag"
+
+        if self.pos_emb is not None:
+            tensor += self.pos_emb(tensor).type(tensor.type())
 
         for layer in self.layers:
             attn = layer[0]
