@@ -1,5 +1,8 @@
-from linformer_pytorch import Linformer, Padder
+import sys
 import torch
+
+sys.path.insert(0, "../")
+from linformer_pytorch import Linformer, Padder
 
 model = Linformer(
         input_size=512,

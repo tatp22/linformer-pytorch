@@ -1,7 +1,9 @@
-from linformer_pytorch import Linformer
 import torch
+import sys
 
-device = torch.device("cuda")
+sys.path.insert(0, "../")
+from linformer_pytorch import Linformer
+
 model = Linformer(
         input_size=262144,
         channels=64,
