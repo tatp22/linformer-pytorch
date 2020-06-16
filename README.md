@@ -41,6 +41,7 @@ model = Linformer(
         activation="gelu", # What activation to use. Currently, only gelu and relu supported, and only on ff network.
         use_pos_emb=True, # Whether or not to use positional embeddings
         checkpoint_level="C0", # What checkpoint level to use. For more information, see below.
+        parameter_sharing="layerwise", # What level of parameter sharing to use. For more information, see below.
         ).cuda()
 x = torch.randn(1, 262144, 64).cuda()
 y = model(x)
@@ -54,6 +55,17 @@ As an attempt to further introduce memory savings, the concept of checkpoint lev
 * `C2`: Along with the optimizations at the `C1` level, checkpoint each head in each MultiHead Attention layer. With this, increasing `nhead` should have less of an impact on memory. However, concating the heads together with `torch.cat` still takes up a lot of memory, and this will hopefully be optimized out in the future.
 
 Performance details are still unknown, but the option exists for users that want to try.
+
+## Parameter Sharing
+Another attempt to introduce memory savings in the paper was to introduce parameter sharing between projections. This is mentioned in section 4 of the paper; in particular, there were 4 different types of parameter sharing that the authors discussed, and all have been implemented in this repo. The first option takes up the most memory, and each further option reduces the necessary memory requirements.
+* `none`: This is no parameter sharing. For every head and for every layer, a new `E` and a new `F` matrix is calculated for every head at each layer.
+* `headwise`: Each layer has a unique `E` and `F` matrix. All heads in the layer share this matrix.
+* `kv`: Each layer has a unique projection matrix `P`, and `E = F = P` for each layer. All heads share this projection matrix `P`.
+* `layerwise`: There is one projection matrix `P`, and every head in every layer uses `E = F = P`.
+
+As started in the paper, this means that for a 12 layer, 12 head network, there would be `288`, `24`, `12` and `1` different projection matrices, respectively.
+
+Also, note that according to the authors, in figure 3, this parameter sharing doesn't really affect the end result too much. So it may be best to just stick with `layerwise` sharing for everything, but the option exists for users to try it out.
 
 ## Padder
 One slight problem with the current implementation of the Linformer is that your sequence length has to match the `input_size` flag of the model. The Padder pads the input size such that the tensor can be fed into the network. An example:
@@ -89,7 +101,7 @@ print(y) # (1, 500, 16)
 * In practice, I found that the memory and time requirements are more on the order of O(nkd), with n=`input_size`, k=`dim_k`, and d=`dim_d`.
 
 ## Future work
-* Add option to change the `E` and `F` downsampling matrices
+* ~~Add option to change the `E` and `F` downsampling matrices~~
 * Run some benchmark tests to see what the performance is
 * Instead of matrix multiplication to bring the dimensions down to k (With EKW and FVW), try to do convolution, as mentioned in the paper, with a stride length and kernel size of n/k.
 * In the paper, empirical studies showed that one can reduce the value of k when increasing depth. Add some option to decrease k more per layers, saving even more memory.

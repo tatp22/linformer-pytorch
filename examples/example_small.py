@@ -13,6 +13,7 @@ model = Linformer(
         nhead=6,
         depth=3,
         checkpoint_level="C2",
+        parameter_sharing="none",
         )
 x = torch.randn(1, 512, 16)
 y = model(x)

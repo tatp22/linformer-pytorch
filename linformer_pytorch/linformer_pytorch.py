@@ -58,13 +58,13 @@ class LinearAttentionHead(nn.Module):
     """
     Linear attention, as proposed by the linformer paper
     """
-    def __init__(self, dim, dropout, E, F):
+    def __init__(self, dim, dropout, E_proj, F_proj):
         super(LinearAttentionHead, self).__init__()
         self.w_k = nn.Linear(dim, dim)
         self.w_q = nn.Linear(dim, dim)
         self.w_v = nn.Linear(dim, dim)
-        self.E = E
-        self.F = F
+        self.E = E_proj
+        self.F = F_proj
         self.dim = dim
         self.dropout = nn.Dropout(dropout)
 
@@ -96,16 +96,21 @@ class MHAttention(nn.Module):
     Multihead attention, with each head being a Linformer Head
     This feeds directly into a feed forward head
     """
-    def __init__(self, input_size, dim, channels, dim_k, dim_ff, nhead, dropout, activation, checkpoint_level):
+    def __init__(self, input_size, dim, channels, dim_k, nhead, dropout, activation, checkpoint_level, parameter_sharing, E_proj, F_proj):
         super(MHAttention, self).__init__()
         self.heads = nn.ModuleList()
         self.input_size = input_size
         self.dim_k = dim_k
         self.checkpoint_level = checkpoint_level
-        self.EF = get_EF(input_size, dim)
+        if parameter_sharing != "layerwise":
+            E_proj = get_EF(input_size, dim)
+            F_proj = get_EF(input_size, dim) if parameter_sharing == "none" or parameter_sharing == "headwise" else E_proj
 
         for head in range(nhead):
-            attn = LinearAttentionHead(dim, dropout, self.EF, self.EF)
+            if parameter_sharing == "none":
+                E_proj = get_EF(input_size, dim)
+                F_proj = get_EF(input_size, dim)
+            attn = LinearAttentionHead(dim, dropout, E_proj, F_proj)
             self.heads.append(attn)
         self.w_o = nn.Linear(dim*nhead, channels)
         self.to_q = nn.Linear(channels, dim, bias=False)
@@ -113,8 +118,6 @@ class MHAttention(nn.Module):
         self.to_v = nn.Linear(channels, dim, bias=False)
 
     def forward(self, tensor):
-        tensor_device = tensor.device
-
         head_outputs = []
         for head in self.heads:
             Q = self.to_q(tensor)
@@ -133,18 +136,21 @@ class Linformer(nn.Module):
     My attempt at reproducing the Linformer Paper
     https://arxiv.org/pdf/2006.04768.pdf
     """
-    def __init__(self, input_size=8192, channels=128, dim_k=64, dim_ff=256, dim_d=512, dropout_ff=0.15, nhead=4, depth=1, dropout=0.1, activation="gelu", use_pos_emb=True, checkpoint_level="C0"):
+    def __init__(self, input_size=8192, channels=128, dim_k=64, dim_ff=256, dim_d=512, dropout_ff=0.15, nhead=4, depth=1, dropout=0.1, activation="gelu", use_pos_emb=True, checkpoint_level="C0", parameter_sharing="layerwise"):
         super(Linformer, self).__init__()
         assert activation == "gelu" or activation == "relu", "Only gelu and relu activations supported for now"
-        assert checkpoint_level == "C0" or checkpoint_level == "C1" or checkpoint_level == "C2", "Checkpoint level has to be either C0, C1, or C2"
+        assert checkpoint_level == "C0" or checkpoint_level == "C1" or checkpoint_level == "C2", "Checkpoint level has to be either C0, C1, or C2."
+        assert parameter_sharing == "none" or parameter_sharing == "headwise" or parameter_sharing == "kv" or parameter_sharing == "layerwise", "The `parameter_sharing` flag has to be either 'none', 'headwise', 'kv', or 'layerwise'."
 
         self.layers = nn.ModuleList()
         self.input_size = input_size
         self.channels = channels
         self.checkpoint_level = checkpoint_level
         self.pos_emb = PositionalEmbedding(channels) if use_pos_emb else None
+        self.E = get_EF(input_size, dim_d)
+        self.F = self.E
 
-        get_attn = lambda: MHAttention(input_size, dim_d, channels, dim_k, dim_ff, nhead, dropout, activation, checkpoint_level)
+        get_attn = lambda: MHAttention(input_size, dim_d, channels, dim_k, nhead, dropout, activation, checkpoint_level, parameter_sharing, self.E, self.F)
         get_ff = lambda: FeedForward(channels, dim_ff, dropout_ff)
         norm_attn = lambda: nn.LayerNorm(channels)
         norm_ff = lambda: nn.LayerNorm(channels)
