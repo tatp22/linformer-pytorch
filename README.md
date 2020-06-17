@@ -1,6 +1,8 @@
 # Linformer Pytorch Implementation
 [![PyPI version](https://badge.fury.io/py/linformer-pytorch.svg)](https://badge.fury.io/py/linformer-pytorch)
 
+![Linear Self Attention](./linformer.png)
+
 A practical implementation of the [Linformer paper](https://arxiv.org/pdf/2006.04768.pdf). This is attention with only linear complexity in n, allowing for very long sequence lengths (1mil+) to be attended to on modern hardware.
 
 This repo has not been empirically tested (i.e. if it performs well on any datasets), but the self attention mechanism works.
