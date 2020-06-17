@@ -124,4 +124,14 @@ Thank you to [lucidrains](https://github.com/lucidrains), whose other sparse att
     primaryClass={cs.LG}
 }
 ```
+
+```bibtex
+@inproceedings{vaswani2017attention,
+  title={Attention is all you need},
+  author={Vaswani, Ashish and Shazeer, Noam and Parmar, Niki and Uszkoreit, Jakob and Jones, Llion and Gomez, Aidan N and Kaiser, {\L}ukasz and Polosukhin, Illia},
+  booktitle={Advances in neural information processing systems},
+  pages={5998--6008},
+  year={2017}
+}
+```
 ["Listen with attention..."](https://youtu.be/dRSOB-E0gPA?t=54)
