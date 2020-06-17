@@ -108,6 +108,7 @@ print(y) # (1, 500, 16)
 * ~~Add option to change the `E` and `F` downsampling matrices~~
 * Run some benchmark tests to see what the performance is
 * Instead of matrix multiplication to bring the dimensions down to k (With EKW and FVW), try to do convolution, as mentioned in the paper, with a stride length and kernel size of n/k.
+* Right now, all that is implemented is the encoder. Add the decoder at a future point in time.
 * ~~In the paper, empirical studies showed that one can reduce the value of k when increasing depth, because the eigenvalues went up. Add some option to decrease k more per layers, saving even more memory.~~
 
 ## Disclaimer
