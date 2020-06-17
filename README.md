@@ -29,7 +29,6 @@ cd linformer-pytorch
 from linformer_pytorch import Linformer
 import torch
 
-device = torch.device("cuda")
 model = Linformer(
         input_size=262144, # Dimension 1 of the input
         channels=64, # Dimension 2 of the input
@@ -44,10 +43,11 @@ model = Linformer(
         use_pos_emb=True, # Whether or not to use positional embeddings
         checkpoint_level="C0", # What checkpoint level to use. For more information, see below.
         parameter_sharing="layerwise", # What level of parameter sharing to use. For more information, see below.
+        k_reduce_by_layer=0, # Going down `depth`, how much to reduce `dim_k` by, for the `E` and `F` matrices. Will have a minimum value of 1.
         ).cuda()
 x = torch.randn(1, 262144, 64).cuda()
 y = model(x)
-print(y)
+print(y) # (1, 262144, 64)
 ```
 
 ## Checkpoint levels
@@ -66,6 +66,8 @@ Another attempt to introduce memory savings in the paper was to introduce parame
 * `layerwise`: There is one projection matrix `P`, and every head in every layer uses `E = F = P`.
 
 As started in the paper, this means that for a 12 layer, 12 head network, there would be `288`, `24`, `12` and `1` different projection matrices, respectively.
+
+Note that with the `k_reduce_by_layer` option, the `layerwise` option will not be effective, since it will use the dimension of `k` for the first layer. Therefore, if the value of `k_reduce_by_layer` value is greater than `0`, one should most likely not use the `layerwise` sharing option.
 
 Also, note that according to the authors, in figure 3, this parameter sharing doesn't really affect the end result too much. So it may be best to just stick with `layerwise` sharing for everything, but the option exists for users to try it out.
 
@@ -106,7 +108,7 @@ print(y) # (1, 500, 16)
 * ~~Add option to change the `E` and `F` downsampling matrices~~
 * Run some benchmark tests to see what the performance is
 * Instead of matrix multiplication to bring the dimensions down to k (With EKW and FVW), try to do convolution, as mentioned in the paper, with a stride length and kernel size of n/k.
-* In the paper, empirical studies showed that one can reduce the value of k when increasing depth. Add some option to decrease k more per layers, saving even more memory.
+* ~~In the paper, empirical studies showed that one can reduce the value of k when increasing depth, because the eigenvalues went up. Add some option to decrease k more per layers, saving even more memory.~~
 
 ## Disclaimer
 This is the first time that I am reproducing a result from a paper, so some things may be wrong. If you see a problem, please open up an issue, and I will attempt to work on it.

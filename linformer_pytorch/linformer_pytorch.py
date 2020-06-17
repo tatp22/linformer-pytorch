@@ -136,7 +136,7 @@ class Linformer(nn.Module):
     My attempt at reproducing the Linformer Paper
     https://arxiv.org/pdf/2006.04768.pdf
     """
-    def __init__(self, input_size=8192, channels=128, dim_k=64, dim_ff=256, dim_d=512, dropout_ff=0.15, nhead=4, depth=1, dropout=0.1, activation="gelu", use_pos_emb=True, checkpoint_level="C0", parameter_sharing="layerwise"):
+    def __init__(self, input_size=8192, channels=128, dim_k=64, dim_ff=256, dim_d=512, dropout_ff=0.15, nhead=4, depth=1, dropout=0.1, activation="gelu", use_pos_emb=True, checkpoint_level="C0", parameter_sharing="layerwise", k_reduce_by_layer=0):
         super(Linformer, self).__init__()
         assert activation == "gelu" or activation == "relu", "Only gelu and relu activations supported for now"
         assert checkpoint_level == "C0" or checkpoint_level == "C1" or checkpoint_level == "C2", "Checkpoint level has to be either C0, C1, or C2."
@@ -150,13 +150,13 @@ class Linformer(nn.Module):
         self.E = get_EF(input_size, dim_d)
         self.F = self.E
 
-        get_attn = lambda: MHAttention(input_size, dim_d, channels, dim_k, nhead, dropout, activation, checkpoint_level, parameter_sharing, self.E, self.F)
+        get_attn = lambda curr_dim_k: MHAttention(input_size, dim_d, channels, curr_dim_k, nhead, dropout, activation, checkpoint_level, parameter_sharing, self.E, self.F)
         get_ff = lambda: FeedForward(channels, dim_ff, dropout_ff)
         norm_attn = lambda: nn.LayerNorm(channels)
         norm_ff = lambda: nn.LayerNorm(channels)
 
         for index in range(depth):
-            self.layers.append(nn.ModuleList([get_attn(),
+            self.layers.append(nn.ModuleList([get_attn(max(1, dim_k - index*k_reduce_by_layer)),
                                 norm_attn(),
                                 get_ff(),
                                 norm_ff()]))
