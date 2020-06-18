@@ -5,7 +5,7 @@
 
 A practical implementation of the [Linformer paper](https://arxiv.org/pdf/2006.04768.pdf). This is attention with only linear complexity in n, allowing for very long sequence lengths (1mil+) to be attended to on modern hardware.
 
-This repo has not been empirically tested (i.e. if it performs well on any datasets), but the self attention mechanism works.
+What is implemented so far is the [encoder part](https://www.topbots.com/wp-content/uploads/2019/04/transformer-encoder-2_web.jpg) of the Transformer (layers of self attention with a feed forward network), but instead of the traditional self attention, it has been replaced with the Linformer self attention, with several tuneable options.
 
 I am not the author of the paper.
 
