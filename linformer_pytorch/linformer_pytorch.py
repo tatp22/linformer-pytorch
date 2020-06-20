@@ -7,7 +7,9 @@ from torch.utils.checkpoint import checkpoint
 def get_act(activation):
     if activation == "gelu":
         return F.gelu
-    return F.relu
+    if activation == "relu":
+        return F.relu
+    return None
 
 def get_EF(input_size, dim):
     """
@@ -116,6 +118,7 @@ class MHAttention(nn.Module):
         self.to_q = nn.Linear(channels, dim, bias=False)
         self.to_k = nn.Linear(channels, dim, bias=False)
         self.to_v = nn.Linear(channels, dim, bias=False)
+        self.activation = get_act(activation)
 
     def forward(self, tensor):
         head_outputs = []
@@ -128,6 +131,8 @@ class MHAttention(nn.Module):
             else:
                 head_outputs.append(head(Q,K,V))
         out = torch.cat(head_outputs, dim=2)
+        if self.activation is not None:
+            out = self.activation(out)
         out = self.w_o(out)
         return out
 

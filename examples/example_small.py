@@ -12,6 +12,7 @@ model = Linformer(
         dim_ff=32,
         nhead=6,
         depth=3,
+        activation="relu",
         checkpoint_level="C2",
         parameter_sharing="layerwise",
         k_reduce_by_layer=1,
