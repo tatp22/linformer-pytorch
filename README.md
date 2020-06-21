@@ -33,7 +33,7 @@ import torch
 model = Linformer(
         input_size=262144, # Dimension 1 of the input
         channels=64, # Dimension 2 of the input
-        dim_d=256, # The inner dimension of the attention heads
+        dim_d=None, # Overwrites the inner dim of the attention heads. If None, sticks with the recommended channels // nhead, as in the "Attention is all you need" paper
         dim_k=128, # The second dimension of the P_bar matrix from the paper
         dim_ff=128, # Dimension in the feed forward network
         dropout_ff=0.15, # Dropout for feed forward network
