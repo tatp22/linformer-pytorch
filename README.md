@@ -24,6 +24,7 @@ cd linformer-pytorch
 ```
 
 ## Code example
+Linformer self attention, stacks of `MHAttention` and `FeedForward`s
 
 ```python
 from linformer_pytorch import Linformer
@@ -48,6 +49,54 @@ model = Linformer(
 x = torch.randn(1, 262144, 64).cuda()
 y = model(x)
 print(y) # (1, 262144, 64)
+```
+
+Linformer Multihead attention
+
+```python
+from linformer_pytorch import MHAttention
+import torch
+
+model = MHAttention(
+        input_size=512, # Dimension 1 of the input
+        channels=64, # Dimension 2 of the input
+        dim=8, # Dim of each attn head
+        dim_k=128, # What to sample the input length down to
+        nhead=8, # Number of heads
+        dropout=0, # Dropout for each of the heads
+        activation="gelu", # Activation after attention has been concat'd
+        checkpoint_level="C2", # If C2, checkpoint each of the heads
+        parameter_sharing="layerwise", # What level of parameter sharing to do
+        E_proj, F_proj, # The E and F projection matrices
+        )
+x = torch.randn(1, 512, 64)
+y = model(x)
+print(y) # (1, 512, 64)
+```
+
+The Linear attention head, the novelty of the paper
+
+```python
+from linformer_pytorch import LinearAttentionHead
+import torch
+
+model = LinearAttentionHead(
+        dim=64, # Dim 2 of the input
+        dropout=0.1, # Dropout of the P matrix
+        E_proj, F_proj # The E and F layers
+        )
+x = torch.randn(1, 512, 64)
+y = model(x, x, x)
+print(y) # (1, 512, 64)
+```
+
+An easy way to get the `E` and `F` matrices can be done by calling the `get_EF` function. As an example, for an `n` of `1000` and a `k` of `100`:
+
+```python
+from linfromer_pytorch import get_EF
+import torch
+
+E = get_EF(1000, 100)
 ```
 
 ## Checkpoint levels
@@ -105,11 +154,9 @@ print(y) # (1, 500, 16)
 * In practice, I found that the memory and time requirements are more on the order of O(nkd), with n=`input_size`, k=`dim_k`, and d=`dim_d`.
 
 ## Future work
-* ~~Add option to change the `E` and `F` downsampling matrices~~
 * Run some benchmark tests to see what the performance is
 * Instead of matrix multiplication to bring the dimensions down to k (With EKW and FVW), try to do convolution, as mentioned in the paper, with a stride length and kernel size of n/k.
 * Right now, all that is implemented is the encoder. Add the decoder at a future point in time.
-* ~~In the paper, empirical studies showed that one can reduce the value of k when increasing depth, because the eigenvalues went up. Add some option to decrease k more per layers, saving even more memory.~~
 
 ## Disclaimer
 This is the first time that I am reproducing a result from a paper, so some things may be wrong. If you see a problem, please open up an issue, and I will attempt to work on it.
