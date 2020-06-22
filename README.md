@@ -7,6 +7,8 @@ A practical implementation of the [Linformer paper](https://arxiv.org/pdf/2006.0
 
 What is implemented so far is the [encoder part](https://www.topbots.com/wp-content/uploads/2019/04/transformer-encoder-2_web.jpg) of the Transformer (layers of self attention with a feed forward network), but instead of the traditional self attention, it has been replaced with the Linformer self attention, with several tuneable options.
 
+Visualization of the heads is also possible. To see more information, check out the Visualization section below.
+
 I am not the author of the paper.
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1zHenqau3rMo3oS_7EisfGsahSs-1_sok?usp=sharing) 1.23m tokens
@@ -143,8 +145,43 @@ y = model(x)
 print(y) # (1, 500, 16)
 ```
 
+## Visualization
+![Attention Head Vis](./head_vis.png)
+
+Starting with version `0.8.0`, one can now visualize the attention heads of the linformer! To see this in action, simply import the `Visualizer` class, and run the `plot_all_heads()` function to see a picture of all the attention heads at each level, of size (n,k). Make sure that you specify `visualize=True` in the forward pass, as this saves the `P_bar` matrix so that the `Visualizer` class can properly visualize the head.
+
+A working example of the code can be found below, and the same code can be found in `./examples/example_vis.py`:
+
+```python
+import sys
+import torch
+
+sys.path.insert(0, "../")
+from linformer_pytorch import Linformer, Visualizer
+
+model = Linformer(
+        input_size=512,
+        channels=16,
+        dim_k=128,
+        dim_ff=32,
+        nhead=4,
+        depth=3,
+        activation="relu",
+        checkpoint_level="C0",
+        parameter_sharing="layerwise",
+        k_reduce_by_layer=1,
+        )
+# One can load the model weights here
+x = torch.randn(1, 512, 16) # What input you want to visualize
+y = model(x, visualize=True)
+vis = Visualizer(model)
+vis.plot_all_heads()
+```
+
 ## E and F matrices
-*Please upgrade to the latest version of `linformer-pytorch`, or a version `>=0.3.1`, if you downloaded it from `pip`!* The way I calculated the E and F matrices before was that I simply used an identity matrix to downsample. However, I contacted the authors of the paper, who told me that they are actually learned parameters, and that using a `nn.Linear` layer with Xavier initialization is the way they used to compute these matrices.
+*Please upgrade to the latest version of `linformer-pytorch`, or a version `>=0.8.0`, if you downloaded it from `pip`!* The way I calculated the E and F matrices before was that I simply used an identity matrix to downsample. However, I contacted the authors of the paper, who told me that they are actually learned parameters, and that using a `nn.Linear` layer with Xavier initialization is the way they used to compute these matrices.
+
+New in version `0.8.0`, a bug was discovered in the code, where the `E` and `F` matrices were of size `n` by `d`. This has been changed so it is now `n` by `k`.
 
 ## Practical Tips
 * Note that the Linformer has O(nk) time and space complexity. So, while it may be linear in n, make sure that your k is not too large as well. These are editable with `input_size` and `dim_k`, respectively.

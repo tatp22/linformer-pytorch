@@ -69,8 +69,9 @@ class LinearAttentionHead(nn.Module):
         self.F = F_proj
         self.dim = dim
         self.dropout = nn.Dropout(dropout)
+        self.P_bar = None
 
-    def forward(self, Q, K, V):
+    def forward(self, Q, K, V, **kwargs):
         """
         Assume Q, K, V have same dtype
         E, F are `nn.Linear` modules
@@ -83,6 +84,11 @@ class LinearAttentionHead(nn.Module):
 
         P_bar = QW/torch.sqrt(torch.tensor(self.dim).type(Q.type()))
         P_bar = P_bar.softmax(dim=-1)
+
+        # Only save this when visualizing
+        if "visualize" in kwargs and kwargs["visualize"] == True:
+            self.P_bar = P_bar
+
         P_bar = self.dropout(P_bar)
 
         VW = self.w_v(V)
@@ -105,13 +111,13 @@ class MHAttention(nn.Module):
         self.dim_k = dim_k
         self.checkpoint_level = checkpoint_level
         if parameter_sharing != "layerwise":
-            E_proj = get_EF(input_size, dim)
-            F_proj = get_EF(input_size, dim) if parameter_sharing == "none" or parameter_sharing == "headwise" else E_proj
+            E_proj = get_EF(input_size, dim_k)
+            F_proj = get_EF(input_size, dim_k) if parameter_sharing == "none" or parameter_sharing == "headwise" else E_proj
 
         for head in range(nhead):
             if parameter_sharing == "none":
-                E_proj = get_EF(input_size, dim)
-                F_proj = get_EF(input_size, dim)
+                E_proj = get_EF(input_size, dim_k)
+                F_proj = get_EF(input_size, dim_k)
             attn = LinearAttentionHead(dim, dropout, E_proj, F_proj)
             self.heads.append(attn)
         self.w_o = nn.Linear(dim*nhead, channels)
@@ -120,16 +126,16 @@ class MHAttention(nn.Module):
         self.to_v = nn.Linear(channels, dim, bias=False)
         self.activation = get_act(activation)
 
-    def forward(self, tensor):
+    def forward(self, tensor, **kwargs):
         head_outputs = []
         for head in self.heads:
             Q = self.to_q(tensor)
             K = self.to_k(tensor)
             V = self.to_v(tensor)
             if self.checkpoint_level == "C2":
-                head_outputs.append(checkpoint(head,Q,K,V))
+                head_outputs.append(checkpoint(head,Q,K,V,**kwargs))
             else:
-                head_outputs.append(head(Q,K,V))
+                head_outputs.append(head(Q,K,V,**kwargs))
         out = torch.cat(head_outputs, dim=2)
         if self.activation is not None:
             out = self.activation(out)
@@ -153,10 +159,12 @@ class Linformer(nn.Module):
         self.channels = channels
         self.checkpoint_level = checkpoint_level
         self.pos_emb = PositionalEmbedding(channels) if use_pos_emb else None
+        self.depth = depth
+        self.nhead = nhead
 
         head_dim = channels // nhead if dim_d is None else dim_d
 
-        self.E = get_EF(input_size, head_dim)
+        self.E = get_EF(input_size, dim_k)
         self.F = self.E
 
         get_attn = lambda curr_dim_k: MHAttention(input_size, head_dim, channels, curr_dim_k, nhead, dropout, activation, checkpoint_level, parameter_sharing, self.E, self.F)
@@ -170,7 +178,7 @@ class Linformer(nn.Module):
                                 get_ff(),
                                 norm_ff()]))
 
-    def forward(self, tensor):
+    def forward(self, tensor, **kwargs):
         """
         Input is (batch_size, seq_len, channels)
         """
@@ -190,9 +198,9 @@ class Linformer(nn.Module):
             # Run attention
             before_attn_tensor = tensor.clone().detach()
             if self.checkpoint_level == "C1" or self.checkpoint_level == "C2":
-                tensor = checkpoint(attn, tensor)
+                tensor = checkpoint(attn, tensor, **kwargs)
             else:
-                tensor = attn(tensor)
+                tensor = attn(tensor, **kwargs)
             tensor += before_attn_tensor
             tensor = attn_norm(tensor)
 
