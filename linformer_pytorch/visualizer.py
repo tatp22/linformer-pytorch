@@ -31,7 +31,7 @@ class Visualizer():
         axs[depth_no, head_no].set_xticks([])
         axs[depth_no, head_no].set_yticks([])
 
-        pcm = axs[depth_no, head_no].imshow(arr, cmap="Reds")
+        pcm = axs[depth_no, head_no].imshow(arr, cmap="Reds", aspect="auto")
         if head_no == 0:
             axs[depth_no, head_no].set_ylabel("Layer {}".format(depth_no+1), fontsize=20)
 

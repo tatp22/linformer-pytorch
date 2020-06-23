@@ -20,7 +20,7 @@ x = torch.randn(1, 512, 16)
 y = model(x, visualize=True)
 vis = Visualizer(model)
 vis.plot_all_heads(title="All P_bar matrices",
-                   show=False,
+                   show=True,
                    save_file=None,
                    figsize=(30,20),
                    n_limit=256)
