@@ -21,7 +21,7 @@ class Visualizer():
         curr_mh_attn = self.net.layers[depth_no][0] # First one is mh attn
         curr_head = curr_mh_attn.heads[head_no]
 
-        arr = curr_head.P_bar[0].detach().numpy()
+        arr = curr_head.P_bar[0].detach().cpu().numpy()
         assert arr is not None, "Cannot visualize a None matrix!"
 
         # Remove axis ticks
