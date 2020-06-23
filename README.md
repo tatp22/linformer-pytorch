@@ -175,6 +175,8 @@ vis = Visualizer(model)
 vis.plot_all_heads(title="All P_bar matrices", # Change the title if you'd like
                    show=True, # Show the picture
                    save_file="./heads.png", # If not None, save the picture to a file
+                   figsize=(8,6), # How big the figure should be
+                   n_limit=None # If not None, limit how much from the `n` dimension to show
                    )
 ```
 
