@@ -153,10 +153,7 @@ Starting with version `0.8.0`, one can now visualize the attention heads of the 
 A working example of the code can be found below, and the same code can be found in `./examples/example_vis.py`:
 
 ```python
-import sys
 import torch
-
-sys.path.insert(0, "../")
 from linformer_pytorch import Linformer, Visualizer
 
 model = Linformer(
