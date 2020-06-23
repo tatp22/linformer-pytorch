@@ -185,6 +185,7 @@ class Linformer(nn.Module):
         bt, n, c = tensor.shape
         assert n == self.input_size, "This tensor is of the wrong size. Dimension 1 has to match the `input_size` flag"
         assert c == self.channels, "This tensor is of the wrong size. Dimension 2 has to match the `channels` flag"
+        assert self.checkpoint_level == "C0" if kwargs else True, "Cannot run checkpointing when visualizing. Please set the checkpoint level to `C0`"
 
         if self.pos_emb is not None:
             tensor += self.pos_emb(tensor).type(tensor.type())
@@ -198,7 +199,7 @@ class Linformer(nn.Module):
             # Run attention
             before_attn_tensor = tensor.clone().detach()
             if self.checkpoint_level == "C1" or self.checkpoint_level == "C2":
-                tensor = checkpoint(attn, tensor, **kwargs)
+                tensor = checkpoint(attn, tensor)
             else:
                 tensor = attn(tensor, **kwargs)
             tensor += before_attn_tensor

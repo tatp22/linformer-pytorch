@@ -14,7 +14,7 @@ class Visualizer():
         assert isinstance(net, Linformer), "Only the Linformer is supported"
         self.net = net
 
-    def get_head_visualization(self, depth_no, max_depth, head_no, axs):
+    def get_head_visualization(self, depth_no, max_depth, head_no, n_limit, axs):
         """
         Returns the visualization for one head in the Linformer
         """
@@ -23,6 +23,9 @@ class Visualizer():
 
         arr = curr_head.P_bar[0].detach().cpu().numpy()
         assert arr is not None, "Cannot visualize a None matrix!"
+
+        if n_limit is not None:
+            arr = arr[:n_limit, :]
 
         # Remove axis ticks
         axs[depth_no, head_no].set_xticks([])
@@ -37,7 +40,7 @@ class Visualizer():
 
         return pcm
 
-    def plot_all_heads(self, title="Visualization of Attention Heads", show=True, save_file=None):
+    def plot_all_heads(self, title="Visualization of Attention Heads", show=True, save_file=None, figsize=(8,6), n_limit=None):
         """
         Showcases all of the heads on a grid. It shows the P_bar matrices for each head,
         which turns out to be an NxK matrix for each of them.
@@ -46,14 +49,14 @@ class Visualizer():
         self.depth = self.net.depth
         self.heads = self.net.nhead
 
-        fig, axs = plt.subplots(self.depth, self.heads)
+        fig, axs = plt.subplots(self.depth, self.heads, figsize=figsize)
         axs = axs.reshape((self.depth, self.heads)) # In case depth or nheads are 1, bug i think
 
         fig.suptitle(title, fontsize=26)
 
         for d_idx in range(self.depth):
             for h_idx in range(self.heads):
-                pcm = self.get_head_visualization(d_idx, self.depth-1, h_idx, axs)
+                pcm = self.get_head_visualization(d_idx, self.depth-1, h_idx, n_limit, axs)
 
         if show:
             plt.show()
