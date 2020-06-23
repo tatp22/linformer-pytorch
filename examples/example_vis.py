@@ -19,5 +19,6 @@ model = Linformer(
 x = torch.randn(1, 512, 16)
 y = model(x, visualize=True)
 vis = Visualizer(model)
-vis.plot_all_heads()
+vis.plot_all_heads(title="All P_bar matrices",
+                   show=True)
 print(y) # (1, 512, 16)

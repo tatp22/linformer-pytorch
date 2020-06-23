@@ -172,7 +172,10 @@ model = Linformer(
 x = torch.randn(1, 512, 16) # What input you want to visualize
 y = model(x, visualize=True)
 vis = Visualizer(model)
-vis.plot_all_heads()
+vis.plot_all_heads(title="All P_bar matrices", # Change the title if you'd like
+                   show=True, # Show the picture
+                   save_file="./heads.png", # If not None, save the picture to a file
+                   )
 ```
 
 ## E and F matrices

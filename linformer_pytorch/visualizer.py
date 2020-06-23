@@ -39,15 +39,15 @@ class Visualizer():
 
     def plot_all_heads(self, title="Visualization of Attention Heads", show=True, save_file=None):
         """
-        Showcases all of the heads on a grid. It shows the W^Q*E*W^K matrices for each head,
-        which turns out to be an NxK matrix
+        Showcases all of the heads on a grid. It shows the P_bar matrices for each head,
+        which turns out to be an NxK matrix for each of them.
         """
 
         self.depth = self.net.depth
         self.heads = self.net.nhead
 
         fig, axs = plt.subplots(self.depth, self.heads)
-        axs = axs.reshape((self.depth, self.heads)) # In case heads or nheads are 1, bug i think
+        axs = axs.reshape((self.depth, self.heads)) # In case depth or nheads are 1, bug i think
 
         fig.suptitle(title, fontsize=26)
 
@@ -59,4 +59,4 @@ class Visualizer():
             plt.show()
 
         if save_file is not None:
-            pass #TODO
+            fig.savefig(save_file)
