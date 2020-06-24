@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 
+import matplotlib.colors as col
 import matplotlib.pyplot as plt
 
 from linformer_pytorch import Linformer
@@ -31,7 +32,7 @@ class Visualizer():
         axs[depth_no, head_no].set_xticks([])
         axs[depth_no, head_no].set_yticks([])
 
-        pcm = axs[depth_no, head_no].imshow(arr, cmap="Reds", aspect="auto")
+        pcm = axs[depth_no, head_no].imshow(arr, cmap="Reds", aspect="auto", norm=col.Normalize())
         if head_no == 0:
             axs[depth_no, head_no].set_ylabel("Layer {}".format(depth_no+1), fontsize=20)
 
