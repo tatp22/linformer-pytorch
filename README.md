@@ -95,13 +95,13 @@ y = model(x, x, x)
 print(y) # (1, 512, 64)
 ```
 
-An easy way to get the `E` and `F` matrices can be done by calling the `get_EF` function. As an example, for an `n` of `1000` and a `k` of `100`:
+An easy way to get the `E` and `F` matrices can be done by calling the `get_linear` function. As an example, for an `n` of `1000` and a `k` of `100`:
 
 ```python
-from linfromer_pytorch import get_EF
+from linfromer_pytorch import get_linear
 import torch
 
-E = get_EF(1000, 100)
+E = get_linear(1000, 100)
 ```
 
 ## Checkpoint levels
