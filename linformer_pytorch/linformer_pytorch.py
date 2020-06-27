@@ -87,7 +87,6 @@ class LinearAttentionHead(nn.Module):
         P_bar = QW/torch.sqrt(torch.tensor(self.dim).type(Q.type()))
         P_bar = P_bar.softmax(dim=-1)
 
-        print(P_bar.shape)
         # Only save this when visualizing
         if "visualize" in kwargs and kwargs["visualize"] == True:
             self.P_bar = P_bar
