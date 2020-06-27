@@ -47,6 +47,7 @@ model = Linformer(
         checkpoint_level="C0", # What checkpoint level to use. For more information, see below.
         parameter_sharing="layerwise", # What level of parameter sharing to use. For more information, see below.
         k_reduce_by_layer=0, # Going down `depth`, how much to reduce `dim_k` by, for the `E` and `F` matrices. Will have a minimum value of 1.
+        full_attention=False, # Use full attention instead, for O(n^2) time and space complexity. Included here just for comparison
         ).cuda()
 x = torch.randn(1, 262144, 64).cuda()
 y = model(x)
@@ -70,6 +71,7 @@ model = MHAttention(
         checkpoint_level="C2", # If C2, checkpoint each of the heads
         parameter_sharing="layerwise", # What level of parameter sharing to do
         E_proj, F_proj, # The E and F projection matrices
+        full_attention=False, # Use full attention instead
         )
 x = torch.randn(1, 512, 64)
 y = model(x)
@@ -85,7 +87,8 @@ import torch
 model = LinearAttentionHead(
         dim=64, # Dim 2 of the input
         dropout=0.1, # Dropout of the P matrix
-        E_proj, F_proj # The E and F layers
+        E_proj, F_proj, # The E and F layers
+        full_attention=False, # Use Full Attention instead
         )
 x = torch.randn(1, 512, 64)
 y = model(x, x, x)

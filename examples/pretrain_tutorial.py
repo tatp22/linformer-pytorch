@@ -11,7 +11,7 @@ config = OrderedDict(
     batch_size=16,
     lr=0.1,
     no_cuda=True,
-    num_epochs=10,
+    num_epochs=30,
     output_dir="./output",
     seed=2222,
 

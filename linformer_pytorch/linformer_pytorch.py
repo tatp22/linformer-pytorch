@@ -60,7 +60,7 @@ class LinearAttentionHead(nn.Module):
     """
     Linear attention, as proposed by the linformer paper
     """
-    def __init__(self, dim, dropout, E_proj, F_proj):
+    def __init__(self, dim, dropout, E_proj, F_proj, full_attention=False):
         super(LinearAttentionHead, self).__init__()
         self.w_k = nn.Linear(dim, dim)
         self.w_q = nn.Linear(dim, dim)
@@ -70,6 +70,7 @@ class LinearAttentionHead(nn.Module):
         self.dim = dim
         self.dropout = nn.Dropout(dropout)
         self.P_bar = None
+        self.full_attention = full_attention
 
     def forward(self, Q, K, V, **kwargs):
         """
@@ -78,13 +79,15 @@ class LinearAttentionHead(nn.Module):
         """
         KW = self.w_k(K)
         KW = torch.transpose(KW, 1, 2)
-        KW = self.E(KW)
+        if not self.full_attention:
+            KW = self.E(KW)
         QW = self.w_q(Q)
         QW = torch.matmul(QW, KW)
 
         P_bar = QW/torch.sqrt(torch.tensor(self.dim).type(Q.type()))
         P_bar = P_bar.softmax(dim=-1)
 
+        print(P_bar.shape)
         # Only save this when visualizing
         if "visualize" in kwargs and kwargs["visualize"] == True:
             self.P_bar = P_bar
@@ -92,9 +95,11 @@ class LinearAttentionHead(nn.Module):
         P_bar = self.dropout(P_bar)
 
         VW = self.w_v(V)
-        VW = torch.transpose(VW, 1, 2)
-        VW = self.F(VW)
-        VW = torch.transpose(VW, 1, 2)
+
+        if not self.full_attention:
+            VW = torch.transpose(VW, 1, 2)
+            VW = self.F(VW)
+            VW = torch.transpose(VW, 1, 2)
         out_tensor = torch.matmul(P_bar, VW)
 
         return out_tensor
@@ -104,7 +109,7 @@ class MHAttention(nn.Module):
     Multihead attention, with each head being a Linformer Head
     This feeds directly into a feed forward head
     """
-    def __init__(self, input_size, dim, channels, dim_k, nhead, dropout, activation, checkpoint_level, parameter_sharing, E_proj, F_proj):
+    def __init__(self, input_size, dim, channels, dim_k, nhead, dropout, activation, checkpoint_level, parameter_sharing, E_proj, F_proj, full_attention):
         super(MHAttention, self).__init__()
         self.heads = nn.ModuleList()
         self.input_size = input_size
@@ -118,7 +123,7 @@ class MHAttention(nn.Module):
             if parameter_sharing == "none":
                 E_proj = get_EF(input_size, dim_k)
                 F_proj = get_EF(input_size, dim_k)
-            attn = LinearAttentionHead(dim, dropout, E_proj, F_proj)
+            attn = LinearAttentionHead(dim, dropout, E_proj, F_proj, full_attention)
             self.heads.append(attn)
         self.w_o = nn.Linear(dim*nhead, channels)
         self.to_q = nn.Linear(channels, dim, bias=False)
@@ -147,7 +152,7 @@ class Linformer(nn.Module):
     My attempt at reproducing the Linformer Paper
     https://arxiv.org/pdf/2006.04768.pdf
     """
-    def __init__(self, input_size=8192, channels=128, dim_k=64, dim_ff=256, dim_d=None, dropout_ff=0.15, nhead=4, depth=1, dropout=0.1, activation="gelu", use_pos_emb=True, checkpoint_level="C0", parameter_sharing="layerwise", k_reduce_by_layer=0):
+    def __init__(self, input_size=8192, channels=128, dim_k=64, dim_ff=256, dim_d=None, dropout_ff=0.15, nhead=4, depth=1, dropout=0.1, activation="gelu", use_pos_emb=True, checkpoint_level="C0", parameter_sharing="layerwise", k_reduce_by_layer=0, full_attention=False):
         super(Linformer, self).__init__()
         assert activation == "gelu" or activation == "relu", "Only gelu and relu activations supported for now"
         assert checkpoint_level == "C0" or checkpoint_level == "C1" or checkpoint_level == "C2", "Checkpoint level has to be either C0, C1, or C2."
@@ -167,7 +172,7 @@ class Linformer(nn.Module):
         self.E = get_EF(input_size, dim_k)
         self.F = self.E
 
-        get_attn = lambda curr_dim_k: MHAttention(input_size, head_dim, channels, curr_dim_k, nhead, dropout, activation, checkpoint_level, parameter_sharing, self.E, self.F)
+        get_attn = lambda curr_dim_k: MHAttention(input_size, head_dim, channels, curr_dim_k, nhead, dropout, activation, checkpoint_level, parameter_sharing, self.E, self.F, full_attention)
         get_ff = lambda: FeedForward(channels, dim_ff, dropout_ff)
         norm_attn = lambda: nn.LayerNorm(channels)
         norm_ff = lambda: nn.LayerNorm(channels)
