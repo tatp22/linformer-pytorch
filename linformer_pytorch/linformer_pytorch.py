@@ -41,14 +41,14 @@ class FeedForward(nn.Module):
     """
     Standard Feed Forward Layer
     """
-    def __init__(self, channels, ff_dim, dropout=0.0, activation="gelu"):
+    def __init__(self, channels, ff_dim, dropout, activation="gelu"):
         super(FeedForward, self).__init__()
         self.w_1 = get_linear(channels, ff_dim)
         self.w_2 = get_linear(ff_dim, channels)
         self.activation = get_act(activation)
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, tensor):
+    def forward(self, tensor, **kwargs):
         tensor = self.w_1(tensor)
         if self.activation is not None:
             tensor = self.activation(tensor)
@@ -149,7 +149,7 @@ class Linformer(nn.Module):
     My attempt at reproducing the Linformer Paper
     https://arxiv.org/pdf/2006.04768.pdf
     """
-    def __init__(self, input_size=8192, channels=128, dim_k=64, dim_ff=256, dim_d=None, dropout_ff=0.15, nhead=4, depth=1, dropout=0.1, activation="gelu", use_pos_emb=True, checkpoint_level="C0", parameter_sharing="layerwise", k_reduce_by_layer=0, full_attention=False):
+    def __init__(self, input_size=8192, channels=128, dim_k=64, dim_ff=256, dim_d=None, dropout_ff=0.15, nhead=4, depth=1, dropout=0.1, activation="gelu", use_pos_emb=True, checkpoint_level="C0", parameter_sharing="layerwise", k_reduce_by_layer=0, full_attention=False, include_ff=True):
         super(Linformer, self).__init__()
         assert activation == "gelu" or activation == "relu", "Only gelu and relu activations supported for now"
         assert checkpoint_level == "C0" or checkpoint_level == "C1" or checkpoint_level == "C2", "Checkpoint level has to be either C0, C1, or C2."
@@ -171,14 +171,12 @@ class Linformer(nn.Module):
 
         get_attn = lambda curr_dim_k: MHAttention(input_size, head_dim, channels, curr_dim_k, nhead, dropout, activation, checkpoint_level, parameter_sharing, self.E, self.F, full_attention)
         get_ff = lambda: FeedForward(channels, dim_ff, dropout_ff)
-        norm_attn = lambda: nn.LayerNorm(channels)
-        norm_ff = lambda: nn.LayerNorm(channels)
+        get_norm = lambda: nn.LayerNorm(channels)
 
         for index in range(depth):
-            self.layers.append(nn.ModuleList([get_attn(max(1, dim_k - index*k_reduce_by_layer)),
-                                norm_attn(),
-                                get_ff(),
-                                norm_ff()]))
+            self.layers.append(nn.ModuleList([get_attn(max(1, dim_k - index*k_reduce_by_layer)), get_norm()]))
+            if include_ff:
+                self.layers.append(nn.ModuleList([get_ff(), get_norm()]))
 
     def forward(self, tensor, **kwargs):
         """
@@ -193,27 +191,15 @@ class Linformer(nn.Module):
             tensor += self.pos_emb(tensor).type(tensor.type())
 
         for layer in self.layers:
-            attn = layer[0]
-            attn_norm = layer[1]
-            ff = layer[2]
-            ff_norm = layer[3]
+            module = layer[0]
+            norm = layer[1]
 
-            # Run attention
-            before_attn_tensor = tensor.clone().detach()
+            before_module_tensor = tensor.clone().detach()
             if self.checkpoint_level == "C1" or self.checkpoint_level == "C2":
-                tensor = checkpoint(attn, tensor)
+                tensor = checkpoint(module, tensor)
             else:
-                tensor = attn(tensor, **kwargs)
-            tensor += before_attn_tensor
-            tensor = attn_norm(tensor)
-
-            # Run ff
-            before_ff_tensor = tensor.clone().detach()
-            if self.checkpoint_level == "C1" or self.checkpoint_level == "C2":
-                tensor = checkpoint(ff, tensor)
-            else:
-                tensor = ff(tensor)
-            tensor += before_ff_tensor
-            tensor = ff_norm(tensor)
+                tensor = module(tensor, **kwargs)
+            tensor += before_module_tensor
+            tensor = norm(tensor)
 
         return tensor

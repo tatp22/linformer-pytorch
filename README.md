@@ -48,6 +48,7 @@ model = Linformer(
         parameter_sharing="layerwise", # What level of parameter sharing to use. For more information, see below.
         k_reduce_by_layer=0, # Going down `depth`, how much to reduce `dim_k` by, for the `E` and `F` matrices. Will have a minimum value of 1.
         full_attention=False, # Use full attention instead, for O(n^2) time and space complexity. Included here just for comparison
+        include_ff=True, # Whether or not to include the Feed Forward layer
         ).cuda()
 x = torch.randn(1, 262144, 64).cuda()
 y = model(x)

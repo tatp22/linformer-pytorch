@@ -15,6 +15,7 @@ model = Linformer(
         checkpoint_level="C1",
         parameter_sharing="none",
         k_reduce_by_layer=1,
+        include_ff=True,
         )
 x = torch.randn(1, 512, 16)
 y = model(x)
