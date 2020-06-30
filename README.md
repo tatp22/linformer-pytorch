@@ -49,6 +49,7 @@ model = Linformer(
         k_reduce_by_layer=0, # Going down `depth`, how much to reduce `dim_k` by, for the `E` and `F` matrices. Will have a minimum value of 1.
         full_attention=False, # Use full attention instead, for O(n^2) time and space complexity. Included here just for comparison
         include_ff=True, # Whether or not to include the Feed Forward layer
+        w_o_intermediate_dim=None, # If not None, have 2 w_o matrices, such that instead of `dim*nead,channels`, you have `dim*nhead,w_o_int`, and `w_o_int,channels`
         ).cuda()
 x = torch.randn(1, 262144, 64).cuda()
 y = model(x)
@@ -73,6 +74,7 @@ model = MHAttention(
         parameter_sharing="layerwise", # What level of parameter sharing to do
         E_proj, F_proj, # The E and F projection matrices
         full_attention=False, # Use full attention instead
+        w_o_intermediate_dim=None, # If not None, have 2 w_o matrices, such that instead of `dim*nead,channels`, you have `dim*nhead,w_o_int`, and `w_o_int,channels`
         )
 x = torch.randn(1, 512, 64)
 y = model(x)
