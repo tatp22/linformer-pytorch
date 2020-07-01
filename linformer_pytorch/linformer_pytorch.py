@@ -240,6 +240,8 @@ class LinformerLM(nn.Module):
         super(LinformerLM, self).__init__()
         emb_dim = channels if emb_dim is None else emb_dim
 
+        self.input_size = input_size
+
         self.to_token_emb = nn.Embedding(num_tokens, emb_dim)
         self.pos_emb = PositionalEmbedding(emb_dim)
         self.linformer = Linformer(input_size, channels, dim_k=dim_k, dim_ff=dim_ff, dim_d=dim_d, dropout_ff=dropout_ff, nhead=nhead, depth=depth, dropout=dropout, activation=activation, use_pos_emb=False, checkpoint_level=checkpoint_level, parameter_sharing=parameter_sharing, k_reduce_by_layer=k_reduce_by_layer, full_attention=full_attention, include_ff=include_ff, w_o_intermediate_dim=w_o_intermediate_dim)
