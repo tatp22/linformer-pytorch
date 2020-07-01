@@ -26,6 +26,38 @@ cd linformer-pytorch
 ```
 
 ## Code example
+Linformer Language Model
+
+```python
+from linformer_pytorch import LinformerLM
+import torch
+
+model = LinformerLM(
+        num_tokens=10000, # Number of tokens in the LM
+        input_size=512, # Dimension 1 of the input
+        channels=64, # Dimension 2 of the input
+        dim_d=None, # Overwrites the inner dim of the attention heads. If None, sticks with the recommended channels // nhead, as in the "Attention is all you need" paper
+        dim_k=128, # The second dimension of the P_bar matrix from the paper
+        dim_ff=128, # Dimension in the feed forward network
+        dropout_ff=0.15, # Dropout for feed forward network
+        nhead=4, # Number of attention heads
+        depth=2, # How many times to run the model
+        dropout=0.1, # How much dropout to apply to P_bar after softmax
+        activation="gelu", # What activation to use. Currently, only gelu and relu supported, and only on ff network.
+        use_pos_emb=True, # Whether or not to use positional embeddings
+        checkpoint_level="C0", # What checkpoint level to use. For more information, see below.
+        parameter_sharing="layerwise", # What level of parameter sharing to use. For more information, see below.
+        k_reduce_by_layer=0, # Going down `depth`, how much to reduce `dim_k` by, for the `E` and `F` matrices. Will have a minimum value of 1.
+        full_attention=False, # Use full attention instead, for O(n^2) time and space complexity. Included here just for comparison
+        include_ff=True, # Whether or not to include the Feed Forward layer
+        w_o_intermediate_dim=None, # If not None, have 2 w_o matrices, such that instead of `dim*nead,channels`, you have `dim*nhead,w_o_int`, and `w_o_int,channels`
+        ).cuda()
+x = torch.randint(1,10000,(1,512)).cuda()
+y = model(x)
+print(y) # (1, 512, 10000)
+
+```
+
 Linformer self attention, stacks of `MHAttention` and `FeedForward`s
 
 ```python

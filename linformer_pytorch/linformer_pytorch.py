@@ -4,6 +4,9 @@ import torch.nn.functional as F
 
 from torch.utils.checkpoint import checkpoint
 
+def identity(x, *args, **kwargs):
+    return x
+
 def get_act(activation):
     if activation == "gelu":
         return F.gelu
@@ -36,6 +39,22 @@ class PositionalEmbedding(nn.Module):
         sin_inp = torch.einsum("i,j->ij", pos, self.inv_freq)
         emb = torch.cat((sin_inp.sin(), sin_inp.cos()), dim=-1)
         return emb[None,:,:]
+
+class ProjectInOut(nn.Module):
+    """
+    Impelemenation taken from https://github.com/lucidrains/sinkhorn-transformer/blob/73da02958965e1a690cb301292c0a3c549687d44/sinkhorn_transformer/sinkhorn_transformer.py#L218
+    """
+    def __init__(self, fn, dim_in, dim_out, project_out=True):
+        super(ProjectInOut, self).__init__()
+        self.fn = fn
+        self.project_in = nn.Linear(dim_in, dim_out)
+        self.project_out = nn.Linear(dim_out, dim_in) if project_out else identity
+
+    def forward(self, tensor, **kwargs):
+        tensor = self.project_in(tensor)
+        tensor = self.fn(tensor, **kwargs)
+        tensor = self.project_out(tensor)
+        return tensor
 
 class FeedForward(nn.Module):
     """
@@ -158,7 +177,7 @@ class Linformer(nn.Module):
     My attempt at reproducing the Linformer Paper
     https://arxiv.org/pdf/2006.04768.pdf
     """
-    def __init__(self, input_size=8192, channels=128, dim_k=64, dim_ff=256, dim_d=None, dropout_ff=0.15, nhead=4, depth=1, dropout=0.1, activation="gelu", use_pos_emb=True, checkpoint_level="C0", parameter_sharing="layerwise", k_reduce_by_layer=0, full_attention=False, include_ff=True, w_o_intermediate_dim=None):
+    def __init__(self, input_size, channels, dim_k, dim_ff=256, dim_d=None, dropout_ff=0.15, nhead=4, depth=1, dropout=0.1, activation="gelu", use_pos_emb=True, checkpoint_level="C0", parameter_sharing="layerwise", k_reduce_by_layer=0, full_attention=False, include_ff=True, w_o_intermediate_dim=None):
         super(Linformer, self).__init__()
         assert activation == "gelu" or activation == "relu", "Only gelu and relu activations supported for now"
         assert checkpoint_level == "C0" or checkpoint_level == "C1" or checkpoint_level == "C2", "Checkpoint level has to be either C0, C1, or C2."
@@ -211,4 +230,31 @@ class Linformer(nn.Module):
             tensor += before_module_tensor
             tensor = norm(tensor)
 
+        return tensor
+
+class LinformerLM(nn.Module):
+    """
+    A wrapper function to accept LM tasks, inspired by https://github.com/lucidrains/sinkhorn-transformer
+    """
+    def __init__(self, num_tokens, input_size, channels, dim_k=64, dim_ff=1024, dim_d=None, dropout_ff=0.1, nhead=4, depth=2, dropout=0.05, activation="gelu", checkpoint_level="C0", parameter_sharing="layerwise", k_reduce_by_layer=0, full_attention=False, include_ff=True, w_o_intermediate_dim=None, emb_dim=None):
+        super(LinformerLM, self).__init__()
+        emb_dim = channels if emb_dim is None else emb_dim
+
+        self.to_token_emb = nn.Embedding(num_tokens, emb_dim)
+        self.pos_emb = PositionalEmbedding(emb_dim)
+        self.linformer = Linformer(input_size, channels, dim_k=dim_k, dim_ff=dim_ff, dim_d=dim_d, dropout_ff=dropout_ff, nhead=nhead, depth=depth, dropout=dropout, activation=activation, use_pos_emb=False, checkpoint_level=checkpoint_level, parameter_sharing=parameter_sharing, k_reduce_by_layer=k_reduce_by_layer, full_attention=full_attention, include_ff=include_ff, w_o_intermediate_dim=w_o_intermediate_dim)
+
+        if emb_dim != channels:
+            self.linformer = ProjectInOut(self.linformer, emb_dim, channels)
+
+        self.to_logits = get_linear(emb_dim, num_tokens)
+
+    def forward(self, tensor, **kwargs):
+        """
+        Input is (batch_size, seq_len), and all items are ints from [0, num_tokens-1]
+        """
+        tensor = self.to_token_emb(tensor)
+        tensor = self.pos_emb(tensor).type(tensor.type()) + tensor
+        tensor = self.linformer(tensor, **kwargs)
+        tensor = self.to_logits(tensor)
         return tensor
