@@ -17,6 +17,7 @@ model = LinformerLM(
         parameter_sharing="none",
         k_reduce_by_layer=1,
         include_ff=True,
+        emb_dim=128,
         )
 x = torch.randint(1,10000,(1,512))
 print(x.shape)

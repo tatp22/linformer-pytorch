@@ -51,6 +51,7 @@ model = LinformerLM(
         full_attention=False, # Use full attention instead, for O(n^2) time and space complexity. Included here just for comparison
         include_ff=True, # Whether or not to include the Feed Forward layer
         w_o_intermediate_dim=None, # If not None, have 2 w_o matrices, such that instead of `dim*nead,channels`, you have `dim*nhead,w_o_int`, and `w_o_int,channels`
+        emb_dim=128, # If you want the embedding dimension to be different than the channels for the Linformer
         ).cuda()
 x = torch.randint(1,10000,(1,512)).cuda()
 y = model(x)
