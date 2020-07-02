@@ -1,9 +1,11 @@
 import os
+import sys
 import torch
 import torch.nn as nn
 
+sys.path.insert(0, "../")
 from collections import OrderedDict
-from linformer_pytorch import Linformer
+from linformer_pytorch import Linformer, Visualizer
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
 
@@ -15,7 +17,7 @@ config = OrderedDict(
     output_dir="./output",
     seed=2222,
 
-    dummy_seq_len=128,
+    dummy_seq_len=64,
     dummy_ch=16,
 )
 
@@ -69,13 +71,13 @@ def main():
                 test_loss  += loss.item()
 
             test_loss /= len(test_loader)
-            print("Training loss: {}".format(test_loss))
+            print("Testing loss: {}".format(test_loss))
 
 def get_model(device):
     """
     Gets the device that the model is running on. Currently running standard linformer
     """
-    model = Linformer(input_size=config["dummy_seq_len"], channels=config["dummy_ch"], dim_k=64,dim_ff=64, nhead=4, depth=4, activation="gelu", checkpoint_level="C0")
+    model = Linformer(input_size=config["dummy_seq_len"], channels=config["dummy_ch"], dim_d=config["dummy_ch"], dim_k=64,dim_ff=64, nhead=4, depth=2, activation="gelu", checkpoint_level="C0", full_attention=True, include_ff=False, parameter_sharing="none")
     model.to(device)
     return model
 

@@ -14,7 +14,7 @@ def get_act(activation):
         return F.relu
     return None
 
-def get_linear(input_size, dim, bias=True):
+def get_EF(input_size, dim, bias=True):
     """
     Retuns the E or F matrix, initialized via xavier initialization.
     This is the recommended way to do it according to the authors of the paper.
@@ -62,8 +62,8 @@ class FeedForward(nn.Module):
     """
     def __init__(self, channels, ff_dim, dropout, activation="gelu"):
         super(FeedForward, self).__init__()
-        self.w_1 = get_linear(channels, ff_dim)
-        self.w_2 = get_linear(ff_dim, channels)
+        self.w_1 = nn.Linear(channels, ff_dim)
+        self.w_2 = nn.Linear(ff_dim, channels)
         self.activation = get_act(activation)
         self.dropout = nn.Dropout(dropout)
 
@@ -128,28 +128,27 @@ class MHAttention(nn.Module):
         self.checkpoint_level = checkpoint_level
         self.w_o_intermediate_dim = w_o_intermediate_dim
         if parameter_sharing != "layerwise":
-            E_proj = get_linear(input_size, dim_k)
-            F_proj = get_linear(input_size, dim_k) if parameter_sharing == "none" or parameter_sharing == "headwise" else E_proj
+            E_proj = get_EF(input_size, dim_k)
+            F_proj = get_EF(input_size, dim_k) if parameter_sharing == "none" or parameter_sharing == "headwise" else E_proj
 
-        self.get_linear = lambda: get_linear(channels, dim, bias=False)
         self.to_q = nn.ModuleList()
         self.to_k = nn.ModuleList()
         self.to_v = nn.ModuleList()
 
         for head in range(nhead):
             if parameter_sharing == "none":
-                E_proj = get_linear(input_size, dim_k)
-                F_proj = get_linear(input_size, dim_k)
+                E_proj = get_EF(input_size, dim_k)
+                F_proj = get_EF(input_size, dim_k)
             attn = LinearAttentionHead(dim, dropout, E_proj, F_proj, full_attention)
             self.heads.append(attn)
-            self.to_q.append(self.get_linear())
-            self.to_k.append(self.get_linear())
-            self.to_v.append(self.get_linear())
+            self.to_q.append(nn.Linear(channels, dim, bias=False))
+            self.to_k.append(nn.Linear(channels, dim, bias=False))
+            self.to_v.append(nn.Linear(channels, dim, bias=False))
         if w_o_intermediate_dim is None:
-            self.w_o = get_linear(dim*nhead, channels)
+            self.w_o = nn.Linear(dim*nhead, channels)
         else:
-            self.w_o_1 = get_linear(dim*nhead, w_o_intermediate_dim)
-            self.w_o_2 = get_linear(w_o_intermediate_dim, channels)
+            self.w_o_1 = nn.Linear(dim*nhead, w_o_intermediate_dim)
+            self.w_o_2 = nn.Linear(w_o_intermediate_dim, channels)
         self.activation = get_act(activation)
 
     def forward(self, tensor, **kwargs):
@@ -162,7 +161,7 @@ class MHAttention(nn.Module):
                 head_outputs.append(checkpoint(head,Q,K,V))
             else:
                 head_outputs.append(head(Q,K,V,**kwargs))
-        out = torch.cat(head_outputs, dim=2)
+        out = torch.cat(head_outputs, dim=-1)
         if self.activation is not None:
             out = self.activation(out)
         if self.w_o_intermediate_dim is None:
@@ -194,7 +193,7 @@ class Linformer(nn.Module):
 
         head_dim = channels // nhead if dim_d is None else dim_d
 
-        self.E = get_linear(input_size, dim_k)
+        self.E = get_EF(input_size, dim_k)
         self.F = self.E
 
         get_attn = lambda curr_dim_k: MHAttention(input_size, head_dim, channels, curr_dim_k, nhead, dropout, activation, checkpoint_level, parameter_sharing, self.E, self.F, full_attention, w_o_intermediate_dim)
@@ -249,7 +248,7 @@ class LinformerLM(nn.Module):
         if emb_dim != channels:
             self.linformer = ProjectInOut(self.linformer, emb_dim, channels)
 
-        self.to_logits = get_linear(emb_dim, num_tokens)
+        self.to_logits = nn.Linear(emb_dim, num_tokens)
 
     def forward(self, tensor, **kwargs):
         """
