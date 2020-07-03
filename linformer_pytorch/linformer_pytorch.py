@@ -99,7 +99,7 @@ class LinearAttentionHead(nn.Module):
         Q = torch.matmul(Q, K)
 
         P_bar = Q/torch.sqrt(torch.tensor(self.dim).type(Q.type()))
-        P_bar = Q.softmax(dim=-1)
+        P_bar = P_bar.softmax(dim=-1)
 
         # Only save this when visualizing
         if "visualize" in kwargs and kwargs["visualize"] == True:
