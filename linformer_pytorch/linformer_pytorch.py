@@ -93,13 +93,13 @@ class LinearAttentionHead(nn.Module):
         Assume Q, K, V have same dtype
         E, F are `nn.Linear` modules
         """
-        K = torch.transpose(K, 1, 2)
+        K = K.transpose(1,2)
         if not self.full_attention:
             K = self.E(K)
         Q = torch.matmul(Q, K)
 
         P_bar = Q/torch.sqrt(torch.tensor(self.dim).type(Q.type()))
-        P_bar = P_bar.softmax(dim=-1)
+        P_bar = Q.softmax(dim=-1)
 
         # Only save this when visualizing
         if "visualize" in kwargs and kwargs["visualize"] == True:
@@ -108,9 +108,9 @@ class LinearAttentionHead(nn.Module):
         P_bar = self.dropout(P_bar)
 
         if not self.full_attention:
-            V = torch.transpose(V, 1, 2)
+            V = V.transpose(1,2)
             V = self.F(V)
-            V = torch.transpose(V, 1, 2)
+            V = V.transpose(1,2)
         out_tensor = torch.matmul(P_bar, V)
 
         return out_tensor
@@ -135,7 +135,7 @@ class MHAttention(nn.Module):
         self.to_k = nn.ModuleList()
         self.to_v = nn.ModuleList()
 
-        for head in range(nhead):
+        for _ in range(nhead):
             if parameter_sharing == "none":
                 E_proj = get_EF(input_size, dim_k)
                 F_proj = get_EF(input_size, dim_k)
@@ -193,10 +193,9 @@ class Linformer(nn.Module):
 
         head_dim = channels // nhead if dim_d is None else dim_d
 
-        self.E = get_EF(input_size, dim_k)
-        self.F = self.E
+        E_proj = get_EF(input_size, dim_k)
 
-        get_attn = lambda curr_dim_k: MHAttention(input_size, head_dim, channels, curr_dim_k, nhead, dropout, activation, checkpoint_level, parameter_sharing, self.E, self.F, full_attention, w_o_intermediate_dim)
+        get_attn = lambda curr_dim_k: MHAttention(input_size, head_dim, channels, curr_dim_k, nhead, dropout, activation, checkpoint_level, parameter_sharing, E_proj, E_proj, full_attention, w_o_intermediate_dim)
         get_ff = lambda: FeedForward(channels, dim_ff, dropout_ff)
         get_norm = lambda: nn.LayerNorm(channels)
 
