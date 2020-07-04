@@ -23,6 +23,32 @@ def get_EF(input_size, dim, bias=True):
     torch.nn.init.xavier_normal_(lin.weight)
     return lin
 
+class Residual(nn.Module):
+    """
+    Implemenation taken from
+    https://github.com/lucidrains/sinkhorn-transformer/blob/master/sinkhorn_transformer/sinkhorn_transformer.py
+    """
+    def __init__(self, fn):
+        super(Residual, self).__init__()
+        self.fn = fn
+
+    def forward(self, tensor, **kwargs):
+        return tensor + self.fn(tensor, **kwargs)
+
+class PreNorm(nn.Module):
+    """
+    Implemenation taken from
+    https://github.com/lucidrains/sinkhorn-transformer/blob/master/sinkhorn_transformer/sinkhorn_transformer.py
+    """
+    def __init__(self, channels, fn):
+        super(PreNorm, self).__init__()
+        self.fn = fn
+        self.norm = nn.LayerNorm(channels)
+
+    def forward(self, tensor, **kwargs):
+        tensor = self.norm(tensor)
+        return self.fn(tensor, **kwargs)
+
 class PositionalEmbedding(nn.Module):
     """
     Standard positional embedding.
@@ -176,18 +202,17 @@ class Linformer(nn.Module):
     My attempt at reproducing the Linformer Paper
     https://arxiv.org/pdf/2006.04768.pdf
     """
-    def __init__(self, input_size, channels, dim_k, dim_ff=256, dim_d=None, dropout_ff=0.15, nhead=4, depth=1, dropout=0.1, activation="gelu", use_pos_emb=True, checkpoint_level="C0", parameter_sharing="layerwise", k_reduce_by_layer=0, full_attention=False, include_ff=True, w_o_intermediate_dim=None):
+    def __init__(self, input_size, channels, dim_k, dim_ff=256, dim_d=None, dropout_ff=0.15, nhead=4, depth=1, dropout=0.1, activation="gelu", checkpoint_level="C0", parameter_sharing="layerwise", k_reduce_by_layer=0, full_attention=False, include_ff=True, w_o_intermediate_dim=None):
         super(Linformer, self).__init__()
         assert activation == "gelu" or activation == "relu", "Only gelu and relu activations supported for now"
         assert checkpoint_level == "C0" or checkpoint_level == "C1" or checkpoint_level == "C2", "Checkpoint level has to be either C0, C1, or C2."
         assert parameter_sharing == "none" or parameter_sharing == "headwise" or parameter_sharing == "kv" or parameter_sharing == "layerwise", "The `parameter_sharing` flag has to be either 'none', 'headwise', 'kv', or 'layerwise'."
         assert channels % nhead == 0 if dim_d is None else True, "If `dim_d` is not set to a custom value, `channels` must be divisible by `nhead`!"
 
-        self.layers = nn.ModuleList()
+        layers = nn.ModuleList()
         self.input_size = input_size
         self.channels = channels
         self.checkpoint_level = checkpoint_level
-        self.pos_emb = PositionalEmbedding(channels) if use_pos_emb else None
         self.depth = depth
         self.nhead = nhead
 
@@ -200,9 +225,17 @@ class Linformer(nn.Module):
         get_norm = lambda: nn.LayerNorm(channels)
 
         for index in range(depth):
-            self.layers.append(nn.ModuleList([get_attn(max(1, dim_k - index*k_reduce_by_layer)), get_norm()]))
+            attn_layer = get_attn(max(1, dim_k - index*k_reduce_by_layer))
+            ff_layer = get_ff()
+
+            attn_layer, ff_layer = map(lambda fn: Residual(PreNorm(channels, fn)), (attn_layer, ff_layer))
+
             if include_ff:
-                self.layers.append(nn.ModuleList([get_ff(), get_norm()]))
+                layers.extend([attn_layer, ff_layer])
+            else:
+                layers.extend([attn_layer])
+
+        self.seq = layers
 
     def forward(self, tensor, **kwargs):
         """
@@ -213,21 +246,11 @@ class Linformer(nn.Module):
         assert c == self.channels, "This tensor is of the wrong size. Dimension 2 has to match the `channels` flag"
         assert self.checkpoint_level == "C0" if kwargs else True, "Cannot run checkpointing when visualizing. Please set the checkpoint level to `C0`"
 
-        if self.pos_emb is not None:
-            tensor += self.pos_emb(tensor).type(tensor.type())
-
-        for layer in self.layers:
-            module = layer[0]
-            norm = layer[1]
-
-            before_module_tensor = tensor.clone().detach()
-            if self.checkpoint_level == "C1" or self.checkpoint_level == "C2":
-                tensor = checkpoint(module, tensor)
+        for layer in self.seq:
+            if self.checkpoint_level != "C0":
+                tensor = checkpoint(layer, tensor)
             else:
-                tensor = module(tensor, **kwargs)
-            tensor += before_module_tensor
-            tensor = norm(tensor)
-
+                tensor = layer(tensor, **kwargs)
         return tensor
 
 class LinformerLM(nn.Module):
@@ -242,7 +265,7 @@ class LinformerLM(nn.Module):
 
         self.to_token_emb = nn.Embedding(num_tokens, emb_dim)
         self.pos_emb = PositionalEmbedding(emb_dim)
-        self.linformer = Linformer(input_size, channels, dim_k=dim_k, dim_ff=dim_ff, dim_d=dim_d, dropout_ff=dropout_ff, nhead=nhead, depth=depth, dropout=dropout, activation=activation, use_pos_emb=False, checkpoint_level=checkpoint_level, parameter_sharing=parameter_sharing, k_reduce_by_layer=k_reduce_by_layer, full_attention=full_attention, include_ff=include_ff, w_o_intermediate_dim=w_o_intermediate_dim)
+        self.linformer = Linformer(input_size, channels, dim_k=dim_k, dim_ff=dim_ff, dim_d=dim_d, dropout_ff=dropout_ff, nhead=nhead, depth=depth, dropout=dropout, activation=activation, checkpoint_level=checkpoint_level, parameter_sharing=parameter_sharing, k_reduce_by_layer=k_reduce_by_layer, full_attention=full_attention, include_ff=include_ff, w_o_intermediate_dim=w_o_intermediate_dim)
 
         if emb_dim != channels:
             self.linformer = ProjectInOut(self.linformer, emb_dim, channels)

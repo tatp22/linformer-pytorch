@@ -13,7 +13,7 @@ config = OrderedDict(
     batch_size=16,
     lr=0.1,
     no_cuda=True,
-    num_epochs=30,
+    num_epochs=15,
     output_dir="./output",
     seed=2222,
 
@@ -72,12 +72,20 @@ def main():
 
             test_loss /= len(test_loader)
             print("Testing loss: {}".format(test_loss))
+    x = torch.randn(1, 64, 16)
+    y = model(x, visualize=True)
+    vis = Visualizer(model)
+    vis.plot_all_heads(title="All P_bar matrices",
+                       show=True,
+                       save_file=None,
+                       figsize=(8,6),
+                       n_limit=256)
 
 def get_model(device):
     """
     Gets the device that the model is running on. Currently running standard linformer
     """
-    model = Linformer(input_size=config["dummy_seq_len"], channels=config["dummy_ch"], dim_d=config["dummy_ch"], dim_k=64,dim_ff=64, nhead=4, depth=2, activation="gelu", checkpoint_level="C0", full_attention=True, include_ff=False, parameter_sharing="none")
+    model = Linformer(input_size=config["dummy_seq_len"], channels=config["dummy_ch"], dim_d=config["dummy_ch"], dim_k=64,dim_ff=64, nhead=8, depth=2, activation="gelu", checkpoint_level="C0", full_attention=True, include_ff=False, parameter_sharing="none")
     model.to(device)
     return model
 

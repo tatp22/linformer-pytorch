@@ -76,7 +76,6 @@ model = Linformer(
         depth=2, # How many times to run the model
         dropout=0.1, # How much dropout to apply to P_bar after softmax
         activation="gelu", # What activation to use. Currently, only gelu and relu supported, and only on ff network.
-        use_pos_emb=True, # Whether or not to use positional embeddings
         checkpoint_level="C0", # What checkpoint level to use. For more information, see below.
         parameter_sharing="layerwise", # What level of parameter sharing to use. For more information, see below.
         k_reduce_by_layer=0, # Going down `depth`, how much to reduce `dim_k` by, for the `E` and `F` matrices. Will have a minimum value of 1.
