@@ -20,11 +20,11 @@ class Visualizer():
         Returns the visualization for one head in the Linformer or MHAttention
         """
         if isinstance(self.net, Linformer):
-            depth_to_use = 2*depth_no if 2*(max_depth+1) == len(self.net.layers) else depth_no
-            curr_mh_attn = self.net.layers[depth_to_use][0] # First one is attn module
+            depth_to_use = 2*depth_no if 2*(max_depth+1) == len(self.net.seq) else depth_no
+            curr_mh_attn = self.net.seq[depth_to_use].fn.fn
             curr_head = curr_mh_attn.heads[head_no]
         else:
-            curr_head = self.net.heads[head_no]
+            curr_head = self.net.fn.fn.heads[head_no]
 
         arr = curr_head.P_bar[0].detach().cpu().numpy()
         assert arr is not None, "Cannot visualize a None matrix!"
@@ -56,7 +56,7 @@ class Visualizer():
             self.heads = self.net.nhead
         else:
             self.depth = 1
-            self.heads = len(self.net.heads)
+            self.heads = self.net.nhead
 
         fig, axs = plt.subplots(self.depth, self.heads, figsize=figsize)
         axs = axs.reshape((self.depth, self.heads)) # In case depth or nheads are 1, bug i think
