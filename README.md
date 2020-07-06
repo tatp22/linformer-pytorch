@@ -5,7 +5,7 @@
 
 A practical implementation of the [Linformer paper](https://arxiv.org/pdf/2006.04768.pdf). This is attention with only linear complexity in n, allowing for very long sequence lengths (1mil+) to be attended to on modern hardware.
 
-What is implemented so far is the [encoder part](https://www.topbots.com/wp-content/uploads/2019/04/transformer-encoder-2_web.jpg) of the Transformer (layers of self attention with a feed forward network), but instead of the traditional self attention, it has been replaced with the Linformer self attention, with several tuneable options.
+This repo is an "Attention Is All You Need" style transformer, complete with an encoder and decoder (WIP) module. Check out how to use it below.
 
 Visualization of the heads is also possible. To see more information, check out the Visualization section below.
 
@@ -130,6 +130,42 @@ y = model(x, x, x)
 print(y) # (1, 512, 64)
 ```
 
+An encoder/decoder module
+```python
+import torch
+from linformer_pytorch import LinformerLM
+
+encoder = LinformerLM(
+    num_tokens=10000,
+    input_size=512,
+    channels=16,
+    dim_k=16,
+    dim_ff=32,
+    nhead=4,
+    depth=3,
+    activation="relu",
+    k_reduce_by_layer=1,
+    return_emb=True,
+    )
+decoder = LinformerLM(
+    num_tokens=10000,
+    input_size=512,
+    channels=16,
+    dim_k=16,
+    dim_ff=32,
+    nhead=4,
+    depth=3,
+    activation="relu",
+    decoder_mode=True,
+    )
+x = torch.randint(1,10000,(1,512))
+y = torch.randint(1,10000,(1,512))
+enc_output = encoder(x)
+print(enc_output.shape) # (1, 512, 128)
+dec_output = decoder(y, embeddings=enc_output)
+print(dec_output.shape) # (1, 512, 10000)
+```
+
 An easy way to get the `E` and `F` matrices can be done by calling the `get_EF` function. As an example, for an `n` of `1000` and a `k` of `100`:
 
 ```python
@@ -218,11 +254,6 @@ vis.plot_all_heads(title="All P_bar matrices", # Change the title if you'd like
                    )
 ```
 
-## E and F matrices
-*Please upgrade to the latest version of `linformer-pytorch`, or a version `>=0.8.0`, if you downloaded it from `pip`!* The way I calculated the E and F matrices before was that I simply used an identity matrix to downsample. However, I contacted the authors of the paper, who told me that they are actually learned parameters, and that using a `nn.Linear` layer with Xavier initialization is the way they used to compute these matrices.
-
-New in version `0.8.0`, a bug was discovered in the code, where the `E` and `F` matrices were of size `n` by `d`. This has been changed so it is now `n` by `k`.
-
 ## Practical Tips
 * Note that the Linformer has O(nk) time and space complexity. So, while it may be linear in n, make sure that your k is not too large as well. These are editable with `input_size` and `dim_k`, respectively.
 * Speaking about k, the authors found that empirical evidence supports the fact that "the performance of Linformer model is mainly determined by the projected dimension k instead of the ratio n/k". Therefore, even when increasing sequence lengths, it may be fine to keep a relatively low, constant k (the authors showed with k=256, that it still performed almost as good as a vanilla transformer).
@@ -233,7 +264,7 @@ New in version `0.8.0`, a bug was discovered in the code, where the `E` and `F` 
 ## Future work
 * Run some benchmark tests to see what the performance is
 * Instead of matrix multiplication to bring the dimensions down to k (With EKW and FVW), try to do convolution, as mentioned in the paper, with a stride length and kernel size of n/k.
-* Right now, all that is implemented is the encoder. Add the decoder at a future point in time.
+* ~~Right now, all that is implemented is the encoder. Add the decoder at a future point in time.~~
 
 ## Disclaimer
 This is the first time that I am reproducing a result from a paper, so some things may be wrong. If you see a problem, please open up an issue, and I will attempt to work on it.

@@ -13,10 +13,7 @@ encoder = LinformerLM(
     nhead=4,
     depth=3,
     activation="relu",
-    checkpoint_level="C0",
-    parameter_sharing="none",
     k_reduce_by_layer=1,
-    include_ff=True,
     return_emb=True,
     )
 decoder = LinformerLM(
@@ -28,15 +25,11 @@ decoder = LinformerLM(
     nhead=4,
     depth=3,
     activation="relu",
-    checkpoint_level="C0",
-    parameter_sharing="none",
-    k_reduce_by_layer=1,
-    include_ff=True,
     decoder_mode=True,
     )
 x = torch.randint(1,10000,(1,512))
 y = torch.randint(1,10000,(1,512))
 enc_output = encoder(x)
-print(enc_output.shape) # (1, 512, 128)
+print(enc_output.shape) # (1, 512, 16)
 dec_output = decoder(y, embeddings=enc_output)
 print(dec_output.shape) # (1, 512, 10000)
