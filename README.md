@@ -5,7 +5,7 @@
 
 A practical implementation of the [Linformer paper](https://arxiv.org/pdf/2006.04768.pdf). This is attention with only linear complexity in n, allowing for very long sequence lengths (1mil+) to be attended to on modern hardware.
 
-This repo is an "Attention Is All You Need" style transformer, complete with an encoder and decoder (WIP) module. Check out how to use it below.
+This repo is an [Attention Is All You Need](https://arxiv.org/pdf/1706.03762.pdf) style transformer, complete with an encoder and decoder (WIP) module. Check out how to use it below.
 
 Visualization of the heads is also possible. To see more information, check out the Visualization section below.
 
