@@ -82,7 +82,7 @@ def main():
                 test_loss  += loss.item()
 
             test_loss /= len(test_data)
-            print("Training loss: {}".format(test_loss))
+            print("Testing loss: {}".format(test_loss))
 
 def get_model(device):
     """

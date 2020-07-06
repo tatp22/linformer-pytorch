@@ -146,17 +146,19 @@ class MHAttention(nn.Module):
     Multihead attention, with each head being a Linformer Head
     This feeds directly into a feed forward head
     """
-    def __init__(self, input_size, dim, channels, dim_k, nhead, dropout, activation, checkpoint_level, parameter_sharing, E_proj, F_proj, full_attention, w_o_intermediate_dim=None):
+    def __init__(self, input_size, dim, channels, dim_k, nhead, dropout, activation, checkpoint_level, parameter_sharing, E_proj, F_proj, full_attention, w_o_intermediate_dim=None, decoder_mode=False):
         super(MHAttention, self).__init__()
         self.heads = nn.ModuleList()
         self.input_size = input_size
         self.dim_k = dim_k
+        self.channels = channels
         self.checkpoint_level = checkpoint_level
         self.w_o_intermediate_dim = w_o_intermediate_dim
         if parameter_sharing != "layerwise":
             E_proj = get_EF(input_size, dim_k)
             F_proj = get_EF(input_size, dim_k) if parameter_sharing == "none" or parameter_sharing == "headwise" else E_proj
 
+        self.decoder_mode = decoder_mode
         self.to_q = nn.ModuleList()
         self.to_k = nn.ModuleList()
         self.to_v = nn.ModuleList()
@@ -178,11 +180,14 @@ class MHAttention(nn.Module):
         self.activation = get_act(activation)
 
     def forward(self, tensor, **kwargs):
+        batch_size, input_len, channels = tensor.shape
+        assert not (self.decoder_mode and "embeddings" not in kwargs), "Embeddings must be supplied if decoding"
+        assert not ("embeddings" in kwargs and (kwargs["embeddings"].shape[0], kwargs["embeddings"].shape[1], kwargs["embeddings"].shape[2]) != (batch_size, input_len, channels)), "Embeddings size must be the same as the input tensor"
         head_outputs = []
         for index, head in enumerate(self.heads):
             Q = self.to_q[index](tensor)
-            K = self.to_k[index](tensor)
-            V = self.to_v[index](tensor)
+            K = self.to_k[index](tensor) if not self.decoder_mode else self.to_k[index](kwargs["embeddings"])
+            V = self.to_v[index](tensor) if not self.decoder_mode else self.to_v[index](kwargs["embeddings"])
             if self.checkpoint_level == "C2":
                 head_outputs.append(checkpoint(head,Q,K,V))
             else:
@@ -202,7 +207,7 @@ class Linformer(nn.Module):
     My attempt at reproducing the Linformer Paper
     https://arxiv.org/pdf/2006.04768.pdf
     """
-    def __init__(self, input_size, channels, dim_k, dim_ff=256, dim_d=None, dropout_ff=0.15, nhead=4, depth=1, dropout=0.1, activation="gelu", checkpoint_level="C0", parameter_sharing="layerwise", k_reduce_by_layer=0, full_attention=False, include_ff=True, w_o_intermediate_dim=None):
+    def __init__(self, input_size, channels, dim_k, dim_ff=256, dim_d=None, dropout_ff=0.15, nhead=4, depth=1, dropout=0.1, activation="gelu", checkpoint_level="C0", parameter_sharing="layerwise", k_reduce_by_layer=0, full_attention=False, include_ff=True, w_o_intermediate_dim=None, decoder_mode=False):
         super(Linformer, self).__init__()
         assert activation == "gelu" or activation == "relu", "Only gelu and relu activations supported for now"
         assert checkpoint_level == "C0" or checkpoint_level == "C1" or checkpoint_level == "C2", "Checkpoint level has to be either C0, C1, or C2."
@@ -210,6 +215,7 @@ class Linformer(nn.Module):
         assert channels % nhead == 0 if dim_d is None else True, "If `dim_d` is not set to a custom value, `channels` must be divisible by `nhead`!"
 
         layers = nn.ModuleList()
+        self.decoder_mode = decoder_mode
         self.input_size = input_size
         self.channels = channels
         self.checkpoint_level = checkpoint_level
@@ -220,9 +226,9 @@ class Linformer(nn.Module):
 
         E_proj = get_EF(input_size, dim_k)
 
-        get_attn = lambda curr_dim_k: MHAttention(input_size, head_dim, channels, curr_dim_k, nhead, dropout, activation, checkpoint_level, parameter_sharing, E_proj, E_proj, full_attention, w_o_intermediate_dim)
+        get_attn = lambda curr_dim_k: MHAttention(input_size, head_dim, channels, curr_dim_k, nhead, dropout, activation, checkpoint_level, parameter_sharing, E_proj, E_proj, full_attention, w_o_intermediate_dim, decoder_mode=False)
+        get_attn_context = lambda curr_dim_k: MHAttention(input_size, head_dim, channels, curr_dim_k, nhead, dropout, activation, checkpoint_level, parameter_sharing, E_proj, E_proj, full_attention, w_o_intermediate_dim, decoder_mode=True)
         get_ff = lambda: FeedForward(channels, dim_ff, dropout_ff)
-        get_norm = lambda: nn.LayerNorm(channels)
 
         for index in range(depth):
             attn_layer = get_attn(max(1, dim_k - index*k_reduce_by_layer))
@@ -235,6 +241,19 @@ class Linformer(nn.Module):
             else:
                 layers.extend([attn_layer])
 
+            if not self.decoder_mode:
+                continue
+
+            attn_context = get_attn_context(max(1, dim_k - index*k_reduce_by_layer))
+            ff_context = get_ff()
+
+            attn_context, ff_context = map(lambda fn: Residual(PreNorm(channels, fn)), (attn_context, ff_context))
+
+            if include_ff:
+                layers.extend([attn_context, ff_context])
+            else:
+                layers.extend([attn_context])
+
         self.seq = layers
 
     def forward(self, tensor, **kwargs):
@@ -244,7 +263,8 @@ class Linformer(nn.Module):
         bt, n, c = tensor.shape
         assert n == self.input_size, "This tensor is of the wrong size. Dimension 1 has to match the `input_size` flag"
         assert c == self.channels, "This tensor is of the wrong size. Dimension 2 has to match the `channels` flag"
-        assert self.checkpoint_level == "C0" if kwargs else True, "Cannot run checkpointing when visualizing. Please set the checkpoint level to `C0`"
+        assert self.checkpoint_level == "C0" if kwargs else True, "Cannot run checkpointing when using kwargs. Please set the checkpoint level to `C0`"
+        assert "embeddings" not in kwargs or self.decoder_mode, "If decoding, needs to be initialized with `decoder_mode=True`"
 
         for layer in self.seq:
             if self.checkpoint_level != "C0":
@@ -257,7 +277,7 @@ class LinformerLM(nn.Module):
     """
     A wrapper function to accept LM tasks, inspired by https://github.com/lucidrains/sinkhorn-transformer
     """
-    def __init__(self, num_tokens, input_size, channels, dim_k=64, dim_ff=1024, dim_d=None, dropout_ff=0.1, nhead=4, depth=2, dropout=0.05, activation="gelu", checkpoint_level="C0", parameter_sharing="layerwise", k_reduce_by_layer=0, full_attention=False, include_ff=True, w_o_intermediate_dim=None, emb_dim=None):
+    def __init__(self, num_tokens, input_size, channels, dim_k=64, dim_ff=1024, dim_d=None, dropout_ff=0.1, nhead=4, depth=2, dropout=0.05, activation="gelu", checkpoint_level="C0", parameter_sharing="layerwise", k_reduce_by_layer=0, full_attention=False, include_ff=True, w_o_intermediate_dim=None, emb_dim=None, return_emb=False, decoder_mode=False):
         super(LinformerLM, self).__init__()
         emb_dim = channels if emb_dim is None else emb_dim
 
@@ -265,12 +285,12 @@ class LinformerLM(nn.Module):
 
         self.to_token_emb = nn.Embedding(num_tokens, emb_dim)
         self.pos_emb = PositionalEmbedding(emb_dim)
-        self.linformer = Linformer(input_size, channels, dim_k=dim_k, dim_ff=dim_ff, dim_d=dim_d, dropout_ff=dropout_ff, nhead=nhead, depth=depth, dropout=dropout, activation=activation, checkpoint_level=checkpoint_level, parameter_sharing=parameter_sharing, k_reduce_by_layer=k_reduce_by_layer, full_attention=full_attention, include_ff=include_ff, w_o_intermediate_dim=w_o_intermediate_dim)
+        self.linformer = Linformer(input_size, channels, dim_k=dim_k, dim_ff=dim_ff, dim_d=dim_d, dropout_ff=dropout_ff, nhead=nhead, depth=depth, dropout=dropout, activation=activation, checkpoint_level=checkpoint_level, parameter_sharing=parameter_sharing, k_reduce_by_layer=k_reduce_by_layer, full_attention=full_attention, include_ff=include_ff, w_o_intermediate_dim=w_o_intermediate_dim, decoder_mode=decoder_mode)
 
         if emb_dim != channels:
             self.linformer = ProjectInOut(self.linformer, emb_dim, channels)
 
-        self.to_logits = nn.Linear(emb_dim, num_tokens)
+        self.to_logits = identity if return_emb else nn.Linear(emb_dim, num_tokens)
 
     def forward(self, tensor, **kwargs):
         """
