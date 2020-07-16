@@ -13,9 +13,9 @@ from torchtext.data.utils import get_tokenizer
 
 config = OrderedDict(
     batch_size=16,
-    gamma=0.97,
+    gamma=0.95,
     log_interval=100,
-    lr=0.1,
+    lr=5.0,
     no_cuda=True,
     num_epochs=30,
     output_dir="./output",
@@ -70,6 +70,7 @@ def main():
             prediction = model(data)
             loss = criterion(prediction.reshape(-1, config["num_tokens"]), targets)
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
             optimizer.step()
             train_loss += loss.item()
             logging_loss += loss.item()
