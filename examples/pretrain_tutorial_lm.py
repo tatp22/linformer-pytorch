@@ -93,7 +93,7 @@ def main():
                 test_loss  += loss.item()
 
             test_loss /= (len(test_data)-1)
-            print("Epoch: {}, test_loss: {}, test_ppl: {}".format(epoch+1, test_loss, math.exp(test_ppl)))
+            print("Epoch: {}, test_loss: {}, test_ppl: {}".format(epoch+1, test_loss, math.exp(test_loss)))
 
         scheduler.step()
 
@@ -101,7 +101,7 @@ def get_model(device):
     """
     Gets the device that the model is running on. Currently running standard linformer
     """
-    model = LinformerLM(config["num_tokens"], input_size=config["seq_len"], channels=config["ch"], dim_k=64,dim_ff=64, nhead=4, depth=4, activation="gelu", checkpoint_level="C0")
+    model = LinformerLM(config["num_tokens"], input_size=config["seq_len"], channels=config["ch"], dim_k=35,dim_ff=200, nhead=2, depth=2, activation="gelu", checkpoint_level="C0")
     model = Padder(model)
     model.to(device)
     return model
