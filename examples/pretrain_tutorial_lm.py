@@ -1,3 +1,4 @@
+import math
 import os
 import torch
 import torch.nn as nn
@@ -12,6 +13,8 @@ from torchtext.data.utils import get_tokenizer
 
 config = OrderedDict(
     batch_size=16,
+    gamma=0.97,
+    log_interval=100,
     lr=0.1,
     no_cuda=True,
     num_epochs=30,
@@ -50,14 +53,15 @@ def main():
     train_data = batchify(TEXT, device, train_text, config["batch_size"])
     test_data = batchify(TEXT, device, test_text, config["batch_size"])
 
-    optimizer = get_optimizer(model.parameters())
+    optimizer, scheduler = get_optimizer(model.parameters())
     criterion = nn.CrossEntropyLoss()
 
     for epoch in range(config["num_epochs"]):
-        print("Epoch {}".format(epoch))
+        print("Epoch {}".format(epoch+1))
 
         model.train()
         train_loss = 0
+        logging_loss = 0
 
         for batch, i in tqdm(enumerate(range(0, train_data.size(0)-1, config["bptt"]))):
             data, targets = get_batch(train_data, i)
@@ -68,6 +72,12 @@ def main():
             loss.backward()
             optimizer.step()
             train_loss += loss.item()
+            logging_loss += loss.item()
+
+            if batch % config["log_interval"] == 0 and batch > 0:
+                curr_loss = logging_loss / config["log_interval"]
+                print("Epoch: {}, LR: {}, loss: {}, ppl: {}".format(epoch+1, scheduler.get_last_lr()[0], curr_loss, math.exp(curr_loss)))
+                logging_loss = 0
 
         train_loss /= len(train_data)
         print("Training loss: {}".format(train_loss))
@@ -81,8 +91,10 @@ def main():
                 loss = criterion(prediction.reshape(-1, config["num_tokens"]), targets)
                 test_loss  += loss.item()
 
-            test_loss /= len(test_data)
-            print("Testing loss: {}".format(test_loss))
+            test_loss /= (len(test_data)-1)
+            print("Epoch: {}, test_loss: {}, test_ppl: {}".format(epoch+1, test_loss, math.exp(test_ppl)))
+
+        scheduler.step()
 
 def get_model(device):
     """
@@ -97,7 +109,9 @@ def get_optimizer(model_parameters):
     """
     Gets an optimizer. Just as an example, I put in SGD
     """
-    return torch.optim.SGD(model_parameters, lr=config["lr"])
+    optim = torch.optim.SGD(model_parameters, lr=config["lr"])
+    sched = torch.optim.lr_scheduler.StepLR(optim, 1.0, gamma=config["gamma"])
+    return optim, sched
 
 def batchify(TEXT, device, data, bsz):
     data = TEXT.numericalize([data.examples[0].text])
