@@ -12,9 +12,9 @@ import torchtext
 from torchtext.data.utils import get_tokenizer
 
 config = OrderedDict(
-    batch_size=16,
+    batch_size=20,
     gamma=0.95,
-    log_interval=100,
+    log_interval=200,
     lr=5.0,
     no_cuda=True,
     num_epochs=30,
@@ -80,9 +80,6 @@ def main():
                 print("Epoch: {}, LR: {}, loss: {}, ppl: {}".format(epoch+1, scheduler.get_last_lr()[0], curr_loss, math.exp(curr_loss)))
                 logging_loss = 0
 
-        train_loss /= len(train_data)
-        print("Training loss: {}".format(train_loss))
-
         with torch.no_grad():
             model.eval()
             test_loss = 0
@@ -90,7 +87,7 @@ def main():
                 data, targets = get_batch(test_data, i)
                 prediction = model(data)
                 loss = criterion(prediction.reshape(-1, config["num_tokens"]), targets)
-                test_loss  += loss.item()
+                test_loss  += (loss.item()*len(data))
 
             test_loss /= (len(test_data)-1)
             print("Epoch: {}, test_loss: {}, test_ppl: {}".format(epoch+1, test_loss, math.exp(test_loss)))
