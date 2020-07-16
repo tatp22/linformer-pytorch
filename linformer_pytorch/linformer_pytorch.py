@@ -119,6 +119,22 @@ class LinearAttentionHead(nn.Module):
         Assume Q, K, V have same dtype
         E, F are `nn.Linear` modules
         """
+        input_mask = kwargs["input_mask"] if "input_mask" in kwargs else None
+        embeddings_mask = kwargs["embeddings_mask"] if "embeddings_mask" in kwargs else None
+
+        # Instead of classic masking, we have to do this, because the classic mask is of size nxn
+        if input_mask is not None:
+            # This is for k, v
+            mask = input_mask[:,:,None]
+            K = K.masked_fill_(~mask, 0.0)
+            V = V.masked_fill_(~mask, 0.0)
+            del mask
+
+        if embeddings_mask is not None:
+            mask = embeddings_mask[:,:,None]
+            Q = Q.masked_fill_(~mask, 0.0)
+            del mask
+
         K = K.transpose(1,2)
         if not self.full_attention:
             K = self.E(K)

@@ -29,7 +29,11 @@ decoder = LinformerLM(
     )
 x = torch.randint(1,10000,(1,512))
 y = torch.randint(1,10000,(1,512))
-enc_output = encoder(x)
+
+x_mask = torch.ones_like(x).bool()
+y_mask = torch.ones_like(y).bool()
+
+enc_output = encoder(x, input_mask=x_mask)
 print(enc_output.shape) # (1, 512, 16)
-dec_output = decoder(y, embeddings=enc_output)
+dec_output = decoder(y, embeddings=enc_output, input_mask=y_mask, embeddings_mask=x_mask)
 print(dec_output.shape) # (1, 512, 10000)

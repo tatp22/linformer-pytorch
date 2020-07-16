@@ -130,7 +130,10 @@ y = model(x, x, x)
 print(y) # (1, 512, 64)
 ```
 
-An encoder/decoder module
+An encoder/decoder module.
+
+NOTE: The masking technique used here is different than the masking technique used in the standard transformer! Because the masking array in the original transformer is of size `(n,n)`, it is infeasable for very large sequence lengths. Therefore, the masking is done on each `Q,K,V` array, where the inputs that are marked as `False` in the masking array are all set to `0`. If there are any suggestions on how to swtich this, let me know, and I will investigate!
+
 ```python
 import torch
 from linformer_pytorch import LinformerLM
@@ -158,11 +161,16 @@ decoder = LinformerLM(
     activation="relu",
     decoder_mode=True,
     )
+
 x = torch.randint(1,10000,(1,512))
 y = torch.randint(1,10000,(1,512))
-enc_output = encoder(x)
-print(enc_output.shape) # (1, 512, 16)
-dec_output = decoder(y, embeddings=enc_output)
+
+x_mask = torch.ones_like(x).bool()
+y_mask = torch.ones_like(y).bool()
+
+enc_output = encoder(x, input_mask=x_mask)
+print(enc_output.shape) # (1, 512, 128)
+dec_output = decoder(y, embeddings=enc_output, input_mask=y_mask, embeddings_mask=x_mask)
 print(dec_output.shape) # (1, 512, 10000)
 ```
 
