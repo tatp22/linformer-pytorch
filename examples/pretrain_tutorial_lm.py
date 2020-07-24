@@ -1,7 +1,10 @@
 import math
 import os
+import sys
 import torch
 import torch.nn as nn
+
+sys.path.insert(0, "../")
 
 from collections import OrderedDict
 from linformer_pytorch import LinformerLM, Padder
@@ -23,6 +26,7 @@ config = OrderedDict(
 
     seq_len=35,
     ch=16,
+    emb_dim=200,
     num_tokens=28785, # The output of len(TEXT.vocab.stoi)
     bptt=35,
 )
@@ -94,12 +98,23 @@ def main():
 
         scheduler.step()
 
+class EncoderLM(nn.Module):
+    def __init__(self):
+        super(EncoderLM, self).__init__()
+        self.attn = LinformerLM(config["num_tokens"], input_size=config["seq_len"], channels=config["ch"], dim_k=35,dim_ff=200, nhead=2, depth=2, activation="gelu", checkpoint_level="C0", causal=True, return_emb=True, emb_dim=config["emb_dim"])
+        self.attn = Padder(self.attn)
+        self.lin = nn.Linear(config["emb_dim"], config["num_tokens"])
+
+    def forward(self, tensor):
+        tensor = self.attn(tensor)
+        tensor = self.lin(tensor)
+        return tensor
+
 def get_model(device):
     """
     Gets the device that the model is running on. Currently running standard linformer
     """
-    model = LinformerLM(config["num_tokens"], input_size=config["seq_len"], channels=config["ch"], dim_k=35,dim_ff=200, nhead=2, depth=2, activation="gelu", checkpoint_level="C0")
-    model = Padder(model)
+    model = EncoderLM()
     model.to(device)
     return model
 
