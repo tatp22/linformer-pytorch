@@ -152,6 +152,7 @@ class LinearAttentionHead(nn.Module):
 
         P_bar = Q/torch.sqrt(torch.tensor(self.dim).type(Q.type()))
         if self.causal_mask is not None:
+            self.causal_mask = self.causal_mask.to(Q.device)
             P_bar = P_bar.masked_fill_(~self.causal_mask, -1e10)
         P_bar = P_bar.softmax(dim=-1)
 
