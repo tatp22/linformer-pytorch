@@ -19,7 +19,7 @@ config = OrderedDict(
     gamma=0.9,
     log_interval=200,
     lr=5.0,
-    no_cuda=True,
+    no_cuda=False,
     num_epochs=15,
     output_dir="./output",
     seed=2222,
@@ -67,7 +67,7 @@ def main():
         train_loss = 0
         logging_loss = 0
 
-        for batch, i in tqdm(enumerate(range(0, train_data.size(0)-1, config["bptt"]))):
+        for batch, i in enumerate(tqdm(range(0, train_data.size(0)-1, config["bptt"]))):
             data, targets = get_batch(train_data, i)
             data, targets = data.to(device), targets.to(device)
             optimizer.zero_grad()
