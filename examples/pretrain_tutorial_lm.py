@@ -74,7 +74,7 @@ def main():
             prediction = model(data)
             loss = criterion(prediction.reshape(-1, config["num_tokens"]), targets)
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
             optimizer.step()
             train_loss += loss.item()
             logging_loss += loss.item()
@@ -102,7 +102,7 @@ def get_model(device):
     """
     Gets the device that the model is running on. Currently running standard LinformerLM
     """
-    model = Padder(LinformerLM(config["num_tokens"], input_size=config["seq_len"], channels=config["ch"], dim_k=20, dim_ff=200, nhead=4, depth=4, activation="gelu", checkpoint_level="C0", causal=True, dropout=0.2, dropout_ff=0.2))
+    model = Padder(LinformerLM(config["num_tokens"], input_size=config["seq_len"], channels=config["ch"], dim_k=20, dim_ff=200, nhead=4, depth=2, activation="gelu", checkpoint_level="C0", causal=True, dropout=0.2, dropout_ff=0.2))
     model.to(device)
     return model
 
