@@ -16,16 +16,16 @@ from torchtext.data.utils import get_tokenizer
 
 config = OrderedDict(
     batch_size=20,
-    gamma=0.95,
+    gamma=0.9,
     log_interval=200,
     lr=5.0,
     no_cuda=True,
-    num_epochs=30,
+    num_epochs=15,
     output_dir="./output",
     seed=2222,
 
-    seq_len=35,
-    ch=16,
+    seq_len=20,
+    ch=200,
     emb_dim=200,
     num_tokens=28785, # The output of len(TEXT.vocab.stoi)
     bptt=35,
@@ -74,7 +74,7 @@ def main():
             prediction = model(data)
             loss = criterion(prediction.reshape(-1, config["num_tokens"]), targets)
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
             optimizer.step()
             train_loss += loss.item()
             logging_loss += loss.item()
@@ -98,23 +98,11 @@ def main():
 
         scheduler.step()
 
-class EncoderLM(nn.Module):
-    def __init__(self):
-        super(EncoderLM, self).__init__()
-        self.attn = LinformerLM(config["num_tokens"], input_size=config["seq_len"], channels=config["ch"], dim_k=35,dim_ff=200, nhead=2, depth=2, activation="gelu", checkpoint_level="C0", causal=True, return_emb=True, emb_dim=config["emb_dim"])
-        self.attn = Padder(self.attn)
-        self.lin = nn.Linear(config["emb_dim"], config["num_tokens"])
-
-    def forward(self, tensor):
-        tensor = self.attn(tensor)
-        tensor = self.lin(tensor)
-        return tensor
-
 def get_model(device):
     """
-    Gets the device that the model is running on. Currently running standard linformer
+    Gets the device that the model is running on. Currently running standard LinformerLM
     """
-    model = EncoderLM()
+    model = Padder(LinformerLM(config["num_tokens"], input_size=config["seq_len"], channels=config["ch"], dim_k=20, dim_ff=200, nhead=4, depth=4, activation="gelu", checkpoint_level="C0", causal=True, dropout=0.2, dropout_ff=0.2))
     model.to(device)
     return model
 
