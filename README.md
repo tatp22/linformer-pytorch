@@ -7,6 +7,8 @@ A practical implementation of the [Linformer paper](https://arxiv.org/pdf/2006.0
 
 This repo is an [Attention Is All You Need](https://arxiv.org/pdf/1706.03762.pdf) style transformer, complete with an encoder and decoder (WIP) module. The novelty here is that now, one can make the attention heads linear. Check out how to use it below.
 
+This is in the process of being validated on wikitext-2. Currently, it performs at the same level as other sparse attention mechanisms, like the [Sinkhorn Transformer](https://github.com/lucidrains/sinkhorn-transformer), but the best hyperparameters still have to be found.
+
 Visualization of the heads is also possible. To see more information, check out the Visualization section below.
 
 I am not the author of the paper.
