@@ -52,6 +52,7 @@ model = LinformerLM(
         include_ff=True, # Whether or not to include the Feed Forward layer
         w_o_intermediate_dim=None, # If not None, have 2 w_o matrices, such that instead of `dim*nead,channels`, you have `dim*nhead,w_o_int`, and `w_o_int,channels`
         emb_dim=128, # If you want the embedding dimension to be different than the channels for the Linformer
+        causal=False, # If you want this to be a causal Linformer, where the upper right of the P_bar matrix is masked out.
         ).cuda()
 x = torch.randint(1,10000,(1,512)).cuda()
 y = model(x)
@@ -132,7 +133,7 @@ print(y) # (1, 512, 64)
 
 An encoder/decoder module.
 
-NOTE: The masking technique used here is different than the masking technique used in the standard transformer! Because the masking array in the original transformer is of size `(n,n)`, it is infeasable for very large sequence lengths. Therefore, the masking is done on each `Q,K,V` array, where the inputs that are marked as `False` in the masking array are all set to `0`. If there are any suggestions on how to swtich this, let me know, and I will investigate!
+Note: For causal sequences, one can set the `causal=True` flag on in the `LinformerLM` to mask out the top right in the `(n,k)` attention matrix.
 
 ```python
 import torch
@@ -272,7 +273,6 @@ vis.plot_all_heads(title="All P_bar matrices", # Change the title if you'd like
 ## Future work
 * Run some benchmark tests to see what the performance is
 * Instead of matrix multiplication to bring the dimensions down to k (With EKW and FVW), try to do convolution, as mentioned in the paper, with a stride length and kernel size of n/k.
-* ~~Right now, all that is implemented is the encoder. Add the decoder at a future point in time.~~
 
 ## Disclaimer
 This is the first time that I am reproducing a result from a paper, so some things may be wrong. If you see a problem, please open up an issue, and I will attempt to work on it.
