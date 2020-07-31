@@ -23,11 +23,15 @@ def gen_causal_mask(input_size, dim_k, full_attention=False):
         return (torch.triu(torch.ones(input_size, input_size))==1).transpose(0,1)
     return (torch.triu(torch.ones(dim_k, input_size))==1).transpose(0,1)
 
-def get_EF(input_size, dim, bias=True):
+def get_EF(input_size, dim, convolution=False, head_dim=None, bias=True):
     """
     Retuns the E or F matrix, initialized via xavier initialization.
     This is the recommended way to do it according to the authors of the paper.
+    Also, includes an option for convolution, as proposed by the authors.
     """
+    if convolution:
+        conv = nn.Conv1d(head_dim, head_dim, kernel_size=int(input_size/dim), stride=int(input_size/dim))
+        return conv
     lin = nn.Linear(input_size, dim, bias)
     torch.nn.init.xavier_normal_(lin.weight)
     return lin
@@ -149,6 +153,7 @@ class LinearAttentionHead(nn.Module):
         if not self.full_attention:
             K = self.E(K)
         Q = torch.matmul(Q, K)
+        print(Q.shape)
 
         P_bar = Q/torch.sqrt(torch.tensor(self.dim).type(Q.type()))
         if self.causal_mask is not None:
@@ -176,7 +181,7 @@ class MHAttention(nn.Module):
     This feeds directly into a feed forward head
     """
     def __init__(self, input_size, dim, channels, dim_k, nhead, dropout, activation, checkpoint_level,
-                       parameter_sharing, E_proj, F_proj, full_attention, causal_mask, w_o_intermediate_dim=None, decoder_mode=False):
+                parameter_sharing, E_proj, F_proj, full_attention, causal_mask, w_o_intermediate_dim=None, decoder_mode=False, convolution=False):
         super(MHAttention, self).__init__()
         self.heads = nn.ModuleList()
         self.input_size = input_size
@@ -186,8 +191,8 @@ class MHAttention(nn.Module):
         self.checkpoint_level = checkpoint_level
         self.w_o_intermediate_dim = w_o_intermediate_dim
         if parameter_sharing != "layerwise":
-            E_proj = get_EF(input_size, dim_k)
-            F_proj = get_EF(input_size, dim_k) if parameter_sharing == "none" or parameter_sharing == "headwise" else E_proj
+            E_proj = get_EF(input_size, dim_k, convolution, dim)
+            F_proj = get_EF(input_size, dim_k, convolution, dim) if parameter_sharing == "none" or parameter_sharing == "headwise" else E_proj
 
         self.decoder_mode = decoder_mode
         self.to_q = nn.ModuleList()
@@ -196,8 +201,8 @@ class MHAttention(nn.Module):
 
         for _ in range(nhead):
             if parameter_sharing == "none":
-                E_proj = get_EF(input_size, dim_k)
-                F_proj = get_EF(input_size, dim_k)
+                E_proj = get_EF(input_size, dim_k, convolution, dim)
+                F_proj = get_EF(input_size, dim_k, convolution, dim)
             attn = LinearAttentionHead(dim, dropout, E_proj, F_proj, causal_mask, full_attention)
             self.heads.append(attn)
             self.to_q.append(nn.Linear(channels, dim, bias=False))
@@ -238,7 +243,7 @@ class Linformer(nn.Module):
     My attempt at reproducing the Linformer Paper
     https://arxiv.org/pdf/2006.04768.pdf
     """
-    def __init__(self, input_size, channels, dim_k, dim_ff=256, dim_d=None, dropout_ff=0.15, nhead=4, depth=1, dropout=0.1, activation="gelu", checkpoint_level="C0", parameter_sharing="layerwise", k_reduce_by_layer=0, full_attention=False, include_ff=True, w_o_intermediate_dim=None, decoder_mode=False, causal=False):
+    def __init__(self, input_size, channels, dim_k, dim_ff=256, dim_d=None, dropout_ff=0.15, nhead=4, depth=1, dropout=0.1, activation="gelu", checkpoint_level="C0", parameter_sharing="layerwise", k_reduce_by_layer=0, full_attention=False, include_ff=True, w_o_intermediate_dim=None, decoder_mode=False, causal=False, convolution=False):
         super(Linformer, self).__init__()
         assert activation == "gelu" or activation == "relu", "Only gelu and relu activations supported for now"
         assert checkpoint_level == "C0" or checkpoint_level == "C1" or checkpoint_level == "C2", "Checkpoint level has to be either C0, C1, or C2."
@@ -255,13 +260,13 @@ class Linformer(nn.Module):
 
         head_dim = channels // nhead if dim_d is None else dim_d
 
-        E_proj = get_EF(input_size, dim_k)
+        E_proj = get_EF(input_size, dim_k, convolution, head_dim)
         causal_mask = gen_causal_mask(input_size, dim_k, full_attention) if causal else None
         # If we want causal but only with the encoder
         causal_enc = gen_causal_mask(input_size, dim_k, full_attention) if (causal and not decoder_mode) else None
 
-        get_attn = lambda curr_dim_k: MHAttention(input_size, head_dim, channels, curr_dim_k, nhead, dropout, activation, checkpoint_level, parameter_sharing, E_proj, E_proj, full_attention, causal_enc, w_o_intermediate_dim, decoder_mode=False)
-        get_attn_context = lambda curr_dim_k: MHAttention(input_size, head_dim, channels, curr_dim_k, nhead, dropout, activation, checkpoint_level, parameter_sharing, E_proj, E_proj, full_attention, causal_mask, w_o_intermediate_dim, decoder_mode=True)
+        get_attn = lambda curr_dim_k: MHAttention(input_size, head_dim, channels, curr_dim_k, nhead, dropout, activation, checkpoint_level, parameter_sharing, E_proj, E_proj, full_attention, causal_enc, w_o_intermediate_dim, decoder_mode=False, convolution=convolution)
+        get_attn_context = lambda curr_dim_k: MHAttention(input_size, head_dim, channels, curr_dim_k, nhead, dropout, activation, checkpoint_level, parameter_sharing, E_proj, E_proj, full_attention, causal_mask, w_o_intermediate_dim, decoder_mode=True, convolution=convolution)
         get_ff = lambda: FeedForward(channels, dim_ff, dropout_ff)
 
         for index in range(depth):
@@ -317,7 +322,7 @@ class LinformerLM(nn.Module):
                        dropout=0.05, activation="gelu", checkpoint_level="C0",
                        parameter_sharing="layerwise", k_reduce_by_layer=0, full_attention=False,
                        include_ff=True, w_o_intermediate_dim=None, emb_dim=None,
-                       return_emb=False, decoder_mode=False, causal=False):
+                       return_emb=False, decoder_mode=False, causal=False, convolution=False):
         super(LinformerLM, self).__init__()
         emb_dim = channels if emb_dim is None else emb_dim
 
@@ -330,7 +335,7 @@ class LinformerLM(nn.Module):
                                    nhead=nhead, depth=depth, dropout=dropout,
                                    activation=activation, checkpoint_level=checkpoint_level, parameter_sharing=parameter_sharing,
                                    k_reduce_by_layer=k_reduce_by_layer, full_attention=full_attention, include_ff=include_ff,
-                                   w_o_intermediate_dim=w_o_intermediate_dim, decoder_mode=decoder_mode, causal=causal)
+                                   w_o_intermediate_dim=w_o_intermediate_dim, decoder_mode=decoder_mode, causal=causal, convolution=False)
 
         if emb_dim != channels:
             self.linformer = ProjectInOut(self.linformer, emb_dim, channels)
@@ -354,20 +359,20 @@ class LinformerEncDec(nn.Module):
     def __init__(self, enc_num_tokens, enc_input_size, enc_channels, dec_num_tokens, dec_input_size, dec_channels,
                        enc_dim_k=64, enc_dim_ff=1024, enc_dim_d=None,
                        enc_dropout_ff=0.1, enc_nhead=4, enc_depth=2, enc_dropout=0.05, enc_parameter_sharing="layerwise", enc_k_reduce_by_layer=0,
-                       enc_full_attention=False, enc_include_ff=True, enc_w_o_intermediate_dim=None, enc_emb_dim=None,
+                       enc_full_attention=False, enc_include_ff=True, enc_w_o_intermediate_dim=None, enc_emb_dim=None, enc_convolution=False,
                        dec_dim_k=64, dec_dim_ff=1024, dec_dim_d=None, dec_dropout_ff=0.1, dec_nhead=4, dec_depth=2, dec_dropout=0.05,
                        dec_parameter_sharing="layerwise", dec_k_reduce_by_layer=0, dec_full_attention=False, dec_include_ff=True,
-                       dec_w_o_intermediate_dim=None, dec_emb_dim=None, activation="gelu", checkpoint_level="C0"):
+                       dec_w_o_intermediate_dim=None, dec_emb_dim=None, dec_convolution=False, activation="gelu", checkpoint_level="C0"):
 
         super(LinformerEncDec, self).__init__()
         self.encoder = LinformerLM(num_tokens=enc_num_tokens, input_size=enc_input_size, channels=enc_channels, dim_d=enc_dim_d, dim_ff=enc_dim_ff,
                                    dim_k=enc_dim_k, dropout_ff=enc_dropout_ff, nhead=enc_nhead, depth=enc_depth, dropout=enc_dropout,
                                    parameter_sharing=enc_parameter_sharing, k_reduce_by_layer=enc_k_reduce_by_layer,
                                    full_attention=enc_full_attention, include_ff=enc_include_ff, w_o_intermediate_dim=enc_w_o_intermediate_dim,
-                                   emb_dim=enc_emb_dim, return_emb=True, activation=activation, checkpoint_level=checkpoint_level)
+                                   emb_dim=enc_emb_dim, return_emb=True, activation=activation, checkpoint_level=checkpoint_level, convolution=enc_convolution)
         self.decoder = LinformerLM(num_tokens=dec_num_tokens, input_size=dec_input_size, channels=dec_channels, dim_d=dec_dim_d, dim_ff=dec_dim_ff,
                                    dim_k=dec_dim_k, dropout_ff=dec_dropout_ff, nhead=dec_nhead, depth=dec_depth, dropout=dec_dropout,
-                                   parameter_sharing=dec_parameter_sharing, k_reduce_by_layer=dec_k_reduce_by_layer,
+                                   parameter_sharing=dec_parameter_sharing, k_reduce_by_layer=dec_k_reduce_by_layer, convolution=dec_convolution,
                                    full_attention=dec_full_attention, include_ff=dec_include_ff, w_o_intermediate_dim=dec_w_o_intermediate_dim,
                                    emb_dim=dec_emb_dim, decoder_mode=True, causal=True, activation=activation, checkpoint_level=checkpoint_level)
 

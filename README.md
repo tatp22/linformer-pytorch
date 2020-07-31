@@ -55,6 +55,7 @@ model = LinformerLM(
         w_o_intermediate_dim=None, # If not None, have 2 w_o matrices, such that instead of `dim*nead,channels`, you have `dim*nhead,w_o_int`, and `w_o_int,channels`
         emb_dim=128, # If you want the embedding dimension to be different than the channels for the Linformer
         causal=False, # If you want this to be a causal Linformer, where the upper right of the P_bar matrix is masked out.
+        convolution=False, # Instead of a linear layer, perform 1d convolution instead, with a stride and kernel size of n/k
         ).cuda()
 x = torch.randint(1,10000,(1,512)).cuda()
 y = model(x)
@@ -265,6 +266,30 @@ vis.plot_all_heads(title="All P_bar matrices", # Change the title if you'd like
                    )
 ```
 
+## Encoder Decoder Module
+Similar to the [Reformer](https://github.com/lucidrains/reformer-pytorch#reformer-encoder-decoder-architecture), I will be attempting to make a Encoder/Decoder Module, so that training can be simplified. This works like 2 `LinformerLM` classes. Params can be adjusted individually for each one, with the encoder having the `enc_` prefix for all of the hyperparams, and the decoder having the `dec_` prefix in a similar fashion. So far, what is implemented is:
+
+```python3
+import torch
+from linformer_pytorch import LinformerEncDec
+
+encdec = LinformerEncDec(
+    enc_num_tokens=10000,
+    enc_input_size=512,
+    enc_channels=16,
+    dec_num_tokens=10000,
+    dec_input_size=512,
+    dec_channels=16,
+)
+
+x = torch.randint(1,10000,(1,512))
+y = torch.randint(1,10000,(1,512))
+
+output = encdec(x,y)
+```
+
+I am planning to have a way to generate text sequence for this.
+
 ## Practical Tips
 * Note that the Linformer has O(nk) time and space complexity. So, while it may be linear in n, make sure that your k is not too large as well. These are editable with `input_size` and `dim_k`, respectively.
 * Speaking about k, the authors found that empirical evidence supports the fact that "the performance of Linformer model is mainly determined by the projected dimension k instead of the ratio n/k". Therefore, even when increasing sequence lengths, it may be fine to keep a relatively low, constant k (the authors showed with k=256, that it still performed almost as good as a vanilla transformer).
@@ -273,8 +298,9 @@ vis.plot_all_heads(title="All P_bar matrices", # Change the title if you'd like
 * In practice, I found that the memory and time requirements are more on the order of O(nkd), with n=`input_size`, k=`dim_k`, and d=`dim_d`.
 
 ## Future work
-* Run some benchmark tests to see what the performance is
-* Instead of matrix multiplication to bring the dimensions down to k (With EKW and FVW), try to do convolution, as mentioned in the paper, with a stride length and kernel size of n/k.
+* Run some benchmark tests to see what the performance is (Doing that now)
+* Complete the `LinformerEncDec` class
+* ~~Instead of matrix multiplication to bring the dimensions down to k (With EKW and FVW), try to do convolution, as mentioned in the paper, with a stride length and kernel size of n/k.~~
 
 ## Disclaimer
 This is the first time that I am reproducing a result from a paper, so some things may be wrong. If you see a problem, please open up an issue, and I will attempt to work on it.
