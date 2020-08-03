@@ -153,7 +153,6 @@ class LinearAttentionHead(nn.Module):
         if not self.full_attention:
             K = self.E(K)
         Q = torch.matmul(Q, K)
-        print(Q.shape)
 
         P_bar = Q/torch.sqrt(torch.tensor(self.dim).type(Q.type()))
         if self.causal_mask is not None:
