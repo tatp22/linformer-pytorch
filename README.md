@@ -56,6 +56,7 @@ model = LinformerLM(
         emb_dim=128, # If you want the embedding dimension to be different than the channels for the Linformer
         causal=False, # If you want this to be a causal Linformer, where the upper right of the P_bar matrix is masked out.
         convolution=False, # Instead of a linear layer, perform 1d convolution instead, with a stride and kernel size of n/k
+        ff_intermediate=None, # See the section below for more information
         ).cuda()
 x = torch.randint(1,10000,(1,512)).cuda()
 y = model(x)
@@ -289,6 +290,21 @@ output = encdec(x,y)
 ```
 
 I am planning to have a way to generate text sequence for this.
+
+## `ff_intermediate` tuning
+Now, the model dimension can be different in the intermediate layers. This change applies to the ff module, and only in the encoder. Now, if the flag `ff_intermediate` is not None, the layers will look like this:
+
+```
+channels -> ff_dim -> ff_intermediate (For layer 1)
+ff_intermediate -> ff_dim -> ff_intermediate (For layers 2 to depth-1)
+ff_intermediate -> ff_dim -> channels (For layer depth)
+```
+
+As opposed to
+
+```
+channels -> ff_dim -> channels (For all layers)
+```
 
 ## Practical Tips
 * Note that the Linformer has O(nk) time and space complexity. So, while it may be linear in n, make sure that your k is not too large as well. These are editable with `input_size` and `dim_k`, respectively.
