@@ -55,7 +55,7 @@ model = LinformerLM(
         w_o_intermediate_dim=None, # If not None, have 2 w_o matrices, such that instead of `dim*nead,channels`, you have `dim*nhead,w_o_int`, and `w_o_int,channels`
         emb_dim=128, # If you want the embedding dimension to be different than the channels for the Linformer
         causal=False, # If you want this to be a causal Linformer, where the upper right of the P_bar matrix is masked out.
-        convolution=False, # Instead of a linear layer, perform 1d convolution instead, with a stride and kernel size of n/k
+        method="learnable", # The method of how to perform the projection. Supported methods are 'convolution', 'learnable', and 'no_params'
         ).cuda()
 x = torch.randint(1,10000,(1,512)).cuda()
 y = model(x)
@@ -187,6 +187,16 @@ import torch
 E = get_EF(1000, 100)
 ```
 
+## Downsampling Methods
+
+With the `methods` flag, one can set the method that the linformer performs downsampling. Currently, three methods are supported:
+
+* `learnable`: This downsampling method creates a learnable `n,k` `nn.Linear` module.
+* `convolution`: This downsampling method creates a 1d convolution, with stride length and kernel size `n/k`.
+* `no_params`: This creates a fixed `n,k` matrix with values fron N(0,1/k)
+
+In the future, I may include pooling or something else. But for now, these are the options that exist.
+
 ## Checkpoint levels
 As an attempt to further introduce memory savings, the concept of checkpoint levels have been introduced. The current three checkpoint levels are `C0`, `C1`, and `C2`. When going up checkpoint levels, one sacrifices speed for memory savings. That is, checkpoint level `C0` is the fastest, but takes up the most space on the GPU, while `C2` is the slowest, but takes up the least space on the GPU. The details of each checkpoint level are as follows:
 * `C0`: No checkpointing. The models runs while keeping all of the attention heads and ff layers in the GPU memory.
@@ -300,7 +310,6 @@ I am planning to have a way to generate text sequence for this.
 ## Future work
 * Run some benchmark tests to see what the performance is (Doing that now)
 * Complete the `LinformerEncDec` class
-* ~~Instead of matrix multiplication to bring the dimensions down to k (With EKW and FVW), try to do convolution, as mentioned in the paper, with a stride length and kernel size of n/k.~~
 
 ## Disclaimer
 This is the first time that I am reproducing a result from a paper, so some things may be wrong. If you see a problem, please open up an issue, and I will attempt to work on it.

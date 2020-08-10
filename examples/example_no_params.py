@@ -13,13 +13,12 @@ model = Linformer(
         nhead=4,
         depth=3,
         activation="relu",
-        checkpoint_level="C1",
+        checkpoint_level="C0",
         parameter_sharing="none",
         k_reduce_by_layer=1,
         include_ff=True,
-        method="convolution",
-        ff_intermediate=64,
+        method="no_params",
         )
 x = torch.randn(1, 510, 21)
 y = model(x)
-print(y) # (1, 512, 16)
+print(y) # (1, 510, 21)
