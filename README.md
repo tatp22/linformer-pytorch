@@ -277,7 +277,7 @@ vis.plot_all_heads(title="All P_bar matrices", # Change the title if you'd like
                    )
 ```
 
-A detailed explanation of what these heads mean can be found in #15
+A detailed explanation of what these heads mean can be found in https://github.com/tatp22/linformer-pytorch/issues/15.
 
 ## Encoder Decoder Module
 Similar to the [Reformer](https://github.com/lucidrains/reformer-pytorch#reformer-encoder-decoder-architecture), I will be attempting to make a Encoder/Decoder Module, so that training can be simplified. This works like 2 `LinformerLM` classes. Params can be adjusted individually for each one, with the encoder having the `enc_` prefix for all of the hyperparams, and the decoder having the `dec_` prefix in a similar fashion. So far, what is implemented is:
