@@ -113,6 +113,7 @@ class FeedForward(nn.Module):
         self.w_2 = nn.Linear(ff_dim, output_channels)
         self.activation = get_act(activation)
         self.dropout = nn.Dropout(dropout)
+        self.dropout2 = nn.Dropout(dropout)
 
     def forward(self, tensor, **kwargs):
         tensor = self.w_1(tensor)
@@ -120,6 +121,7 @@ class FeedForward(nn.Module):
             tensor = self.activation(tensor)
         tensor = self.dropout(tensor)
         tensor = self.w_2(tensor)
+        tensor = self.dropout2(tensor)
         return tensor
 
 class LinearAttentionHead(nn.Module):
@@ -228,6 +230,7 @@ class MHAttention(nn.Module):
             self.w_o_1 = nn.Linear(dim*nhead, w_o_intermediate_dim)
             self.w_o_2 = nn.Linear(w_o_intermediate_dim, channels)
         self.activation = get_act(activation)
+        self.mh_dropout = nn.Dropout(dropout)
 
     def forward(self, tensor, **kwargs):
         batch_size, input_len, channels = tensor.shape
@@ -250,6 +253,7 @@ class MHAttention(nn.Module):
         else:
             out = self.w_o_1(out)
             out = self.w_o_2(out)
+        out = self.mh_dropout(out)
         return out
 
 class Linformer(nn.Module):
@@ -337,7 +341,7 @@ class LinformerLM(nn.Module):
     """
     def __init__(self, num_tokens, input_size, channels,
                        dim_k=64, dim_ff=1024, dim_d=None,
-                       dropout_ff=0.1, nhead=4, depth=2, ff_intermediate=None,
+                       dropout_ff=0.1, dropout_tokens=0.1, nhead=4, depth=2, ff_intermediate=None,
                        dropout=0.05, activation="gelu", checkpoint_level="C0",
                        parameter_sharing="layerwise", k_reduce_by_layer=0, full_attention=False,
                        include_ff=True, w_o_intermediate_dim=None, emb_dim=None,
@@ -360,6 +364,7 @@ class LinformerLM(nn.Module):
             self.linformer = ProjectInOut(self.linformer, emb_dim, channels)
 
         self.to_logits = identity if return_emb else nn.Linear(emb_dim, num_tokens)
+        self.dropout_tokens = nn.Dropout(dropout_tokens)
 
     def forward(self, tensor, **kwargs):
         """
@@ -367,6 +372,7 @@ class LinformerLM(nn.Module):
         """
         tensor = self.to_token_emb(tensor)
         tensor = self.pos_emb(tensor).type(tensor.type()) + tensor
+        tensor = self.dropout_tokens(tensor)
         tensor = self.linformer(tensor, **kwargs)
         tensor = self.to_logits(tensor)
         return tensor
