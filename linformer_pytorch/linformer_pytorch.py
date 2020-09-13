@@ -196,7 +196,7 @@ class MHAttention(nn.Module):
     Multihead attention, with each head being a Linformer Head
     This feeds directly into a feed forward head
     """
-    def __init__(self, input_size, dim, channels, dim_k, nhead, dropout, activation, checkpoint_level,
+    def __init__(self, input_size, dim, channels, dim_k, nhead, dropout, checkpoint_level,
             parameter_sharing, E_proj, F_proj, full_attention, causal_mask, w_o_intermediate_dim=None, decoder_mode=False, method="learnable"):
         super(MHAttention, self).__init__()
         self.heads = nn.ModuleList()
@@ -229,7 +229,6 @@ class MHAttention(nn.Module):
         else:
             self.w_o_1 = nn.Linear(dim*nhead, w_o_intermediate_dim)
             self.w_o_2 = nn.Linear(w_o_intermediate_dim, channels)
-        self.activation = get_act(activation)
         self.mh_dropout = nn.Dropout(dropout)
 
     def forward(self, tensor, **kwargs):
@@ -246,8 +245,6 @@ class MHAttention(nn.Module):
             else:
                 head_outputs.append(head(Q,K,V,**kwargs))
         out = torch.cat(head_outputs, dim=-1)
-        if self.activation is not None:
-            out = self.activation(out)
         if self.w_o_intermediate_dim is None:
             out = self.w_o(out)
         else:
@@ -285,9 +282,9 @@ class Linformer(nn.Module):
         # If we want causal but only with the encoder
         causal_enc = gen_causal_mask(input_size, dim_k, full_attention) if (causal and not decoder_mode) else None
 
-        get_attn = lambda attn_channels, curr_dim_k: MHAttention(input_size, head_dim, attn_channels, curr_dim_k, nhead, dropout, activation, checkpoint_level, parameter_sharing, E_proj, E_proj, full_attention, causal_enc, w_o_intermediate_dim, decoder_mode=False, method=method)
-        get_attn_context = lambda attn_channels, curr_dim_k: MHAttention(input_size, head_dim, attn_channels, curr_dim_k, nhead, dropout, activation, checkpoint_level, parameter_sharing, E_proj, E_proj, full_attention, causal_mask, w_o_intermediate_dim, decoder_mode=True, method=method)
-        get_ff = lambda input_channels, output_channels: FeedForward(input_channels, output_channels, dim_ff, dropout_ff)
+        get_attn = lambda attn_channels, curr_dim_k: MHAttention(input_size, head_dim, attn_channels, curr_dim_k, nhead, dropout, checkpoint_level, parameter_sharing, E_proj, E_proj, full_attention, causal_enc, w_o_intermediate_dim, decoder_mode=False, method=method)
+        get_attn_context = lambda attn_channels, curr_dim_k: MHAttention(input_size, head_dim, attn_channels, curr_dim_k, nhead, dropout, checkpoint_level, parameter_sharing, E_proj, E_proj, full_attention, causal_mask, w_o_intermediate_dim, decoder_mode=True, method=method)
+        get_ff = lambda input_channels, output_channels: FeedForward(input_channels, output_channels, dim_ff, dropout_ff, activation)
 
         for index in range(depth):
             input_channels = ff_intermediate if (index != 0 and ff_intermediate is not None) and not decoder_mode else channels
