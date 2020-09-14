@@ -45,30 +45,22 @@ class Residual(nn.Module):
     """
     Implemenation taken from
     https://github.com/lucidrains/sinkhorn-transformer/blob/master/sinkhorn_transformer/sinkhorn_transformer.py
+    However, I do postnorm instead of prenorm.
     """
     def __init__(self, fn, input_channels=0, output_channels=0):
         super(Residual, self).__init__()
         self.fn = fn
         self.resample = nn.Linear(input_channels, output_channels) if input_channels != output_channels else None
+        self.norm = nn.LayerNorm(output_channels)
 
     def forward(self, tensor, **kwargs):
         if self.resample is not None:
-            return self.resample(tensor) + self.fn(tensor, **kwargs)
-        return tensor + self.fn(tensor, **kwargs)
-
-class PreNorm(nn.Module):
-    """
-    Implemenation taken from
-    https://github.com/lucidrains/sinkhorn-transformer/blob/master/sinkhorn_transformer/sinkhorn_transformer.py
-    """
-    def __init__(self, channels, fn):
-        super(PreNorm, self).__init__()
-        self.fn = fn
-        self.norm = nn.LayerNorm(channels)
-
-    def forward(self, tensor, **kwargs):
+            tensor = self.resample(tensor) + self.fn(tensor, **kwargs)
+            tensor = self.norm(tensor)
+            return tensor
+        tensor = tensor + self.fn(tensor, **kwargs)
         tensor = self.norm(tensor)
-        return self.fn(tensor, **kwargs)
+        return tensor
 
 class PositionalEmbedding(nn.Module):
     """
@@ -293,7 +285,7 @@ class Linformer(nn.Module):
             attn_layer = get_attn(input_channels, max(1, dim_k - index*k_reduce_by_layer))
             ff_layer = get_ff(input_channels, output_channels)
 
-            attn_layer, ff_layer = map(lambda res_ch_in, res_ch_out, fn: Residual(PreNorm(input_channels, fn), res_ch_in, res_ch_out), (input_channels, input_channels), (input_channels, output_channels), (attn_layer, ff_layer))
+            attn_layer, ff_layer = map(lambda res_ch_in, res_ch_out, fn: Residual(fn, res_ch_in, res_ch_out), (input_channels, input_channels), (input_channels, output_channels), (attn_layer, ff_layer))
 
             if include_ff:
                 layers.extend([attn_layer, ff_layer])
@@ -306,7 +298,7 @@ class Linformer(nn.Module):
             attn_context = get_attn_context(channels, max(1, dim_k - index*k_reduce_by_layer))
             ff_context = get_ff(channels, channels)
 
-            attn_context, ff_context = map(lambda fn: Residual(PreNorm(channels, fn)), (attn_context, ff_context))
+            attn_context, ff_context = map(lambda fn: Residual(fn, channels, channels), (attn_context, ff_context))
 
             if include_ff:
                 layers.extend([attn_context, ff_context])
