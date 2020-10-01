@@ -21,10 +21,10 @@ class Visualizer():
         """
         if isinstance(self.net, Linformer):
             depth_to_use = 2*depth_no if 2*(max_depth+1) == len(self.net.seq) else depth_no
-            curr_mh_attn = self.net.seq[depth_to_use].fn.fn
+            curr_mh_attn = self.net.seq[depth_to_use].fn
             curr_head = curr_mh_attn.heads[head_no]
         else:
-            curr_head = self.net.fn.fn.heads[head_no]
+            curr_head = self.net.fn.heads[head_no]
 
         arr = curr_head.P_bar[0].detach().cpu().numpy()
         assert arr is not None, "Cannot visualize a None matrix!"
