@@ -155,6 +155,7 @@ class LinearAttentionHead(nn.Module):
         K = K.transpose(1,2)
         if not self.full_attention:
             if self.is_proj_tensor:
+                self.E = self.E.to(K.device)
                 K = torch.matmul(K, self.E)
             else:
                 K = self.E(K)
@@ -175,6 +176,7 @@ class LinearAttentionHead(nn.Module):
         if not self.full_attention:
             V = V.transpose(1,2)
             if self.is_proj_tensor:
+                self.F = self.F.to(V.device)
                 V = torch.matmul(V, self.F)
             else:
                 V = self.F(V)
