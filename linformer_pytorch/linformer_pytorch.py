@@ -161,7 +161,7 @@ class LinearAttentionHead(nn.Module):
                 K = self.E(K)
         Q = torch.matmul(Q, K)
 
-        P_bar = Q/torch.sqrt(torch.tensor(self.dim).type(Q.type()))
+        P_bar = Q/torch.sqrt(torch.tensor(self.dim).type(Q.type())).to(Q.device)
         if self.causal_mask is not None:
             self.causal_mask = self.causal_mask.to(Q.device)
             P_bar = P_bar.masked_fill_(~self.causal_mask, float('-inf'))
