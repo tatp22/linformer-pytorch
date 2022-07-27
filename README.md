@@ -190,7 +190,7 @@ E = get_EF(1000, 100)
 
 ## Downsampling Methods
 
-With the `methods` flag, one can set the method that the linformer performs downsampling. Currently, three methods are supported:
+With the `method` flag, one can set the method that the linformer performs downsampling. Currently, three methods are supported:
 
 * `learnable`: This downsampling method creates a learnable `n,k` `nn.Linear` module.
 * `convolution`: This downsampling method creates a 1d convolution, with stride length and kernel size `n/k`.
